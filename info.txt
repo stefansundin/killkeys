@@ -1,0 +1,23 @@
+KillKeys
+http://killkeys.googlecode.com/
+recover89@gmail.com
+
+When enabled, keys specified in config.txt will be disabled.
+By default, both windows keys and the menu key are disabled.
+Check hex values for keys at msdn:
+http://msdn.microsoft.com/en-us/library/ms645540(VS.85).aspx
+
+After editing config.txt, be sure to disable and then enable KillKeys to refresh the config.
+Be careful, a malformed config.txt may crash KillKeys or make it go into an infinite loop, consuming 100% cpu.
+Don't add more than 100 keys.
+
+You can use -hide as a parameter to hide the tray icon.
+
+Changelog
+---------
+0.2:
+Renamed to KillKeys.
+Read keys from config.txt.
+
+0.1 (BETA):
+Initial release.
