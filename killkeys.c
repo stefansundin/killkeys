@@ -21,15 +21,15 @@
 #include <windows.h>
 
 //Tray messages
-#define WM_ICONTRAY WM_USER+1
-#define SWM_TOGGLE WM_APP+1
-#define SWM_AUTOSTART_ON WM_APP+2
-#define SWM_AUTOSTART_OFF WM_APP+3
-#define SWM_AUTOSTART_HIDE_ON WM_APP+4
-#define SWM_AUTOSTART_HIDE_OFF WM_APP+5
-#define SWM_HIDE WM_APP+6
-#define SWM_ABOUT WM_APP+7
-#define SWM_EXIT WM_APP+8
+#define WM_ICONTRAY            WM_USER+1
+#define SWM_TOGGLE             WM_APP+1
+#define SWM_HIDE               WM_APP+2
+#define SWM_AUTOSTART_ON       WM_APP+3
+#define SWM_AUTOSTART_OFF      WM_APP+4
+#define SWM_AUTOSTART_HIDE_ON  WM_APP+5
+#define SWM_AUTOSTART_HIDE_OFF WM_APP+6
+#define SWM_ABOUT              WM_APP+7
+#define SWM_EXIT               WM_APP+8
 
 //Stuff
 LPSTR szClassName="KillKeys";
@@ -44,8 +44,8 @@ static HHOOK hhookSysMsg;
 static HICON icon[2];
 static NOTIFYICONDATA traydata;
 static UINT WM_TASKBARCREATED;
-static int hook_installed=0;
 static int tray_added=0;
+static int hook_installed=0;
 static int hide=0;
 
 static int keys[100];
@@ -369,7 +369,7 @@ void SetAutostart(int on, int hide) {
 			MessageBox(NULL, msg, "KillKeys Warning", MB_ICONWARNING|MB_OK);
 			return;
 		}
-		//Compare
+		//Add
 		char value[MAX_PATH+10];
 		if (hide) {
 			sprintf(value,"\"%s\" -hide",path);
@@ -389,6 +389,7 @@ void SetAutostart(int on, int hide) {
 		}
 	}
 	else {
+		//Remove
 		if (RegDeleteValue(key,"KillKeys") != ERROR_SUCCESS) {
 			sprintf(msg,"RegDeleteValue() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
 			MessageBox(NULL, msg, "KillKeys Warning", MB_ICONWARNING|MB_OK);
@@ -408,6 +409,10 @@ LRESULT CALLBACK MyWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 		int wmId=LOWORD(wParam), wmEvent=HIWORD(wParam);
 		if (wmId == SWM_TOGGLE) {
 			ToggleHook();
+		}
+		else if (wmId == SWM_HIDE) {
+			hide=1;
+			RemoveTray();
 		}
 		else if (wmId == SWM_AUTOSTART_ON) {
 			SetAutostart(1,0);
@@ -430,10 +435,6 @@ LRESULT CALLBACK MyWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 			char buffer2[1300];
 			sprintf(buffer2, "KillKeys - 0.2\nhttp://killkeys.googlecode.com/\nrecover89@gmail.com\n\nWhen enabled, keys specified in config.txt will be disabled.\nBy default, both windows keys and the menu key are disabled.\nKeys disabled now:%s\n\nInstructions on how to edit the disabled keys in info.txt\n\nYou can use -hide as a parameter to hide the tray icon.\n\nSend feedback to recover89@gmail.com", buffer);
 			MessageBox(NULL, buffer2, "About KillKeys", MB_ICONINFORMATION|MB_OK);
-		}
-		else if (wmId == SWM_HIDE) {
-			hide=1;
-			RemoveTray();
 		}
 		else if (wmId == SWM_EXIT) {
 			DestroyWindow(hWnd);
