@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+	<id>urn:uuid:e1f3b594-b709-4ec3-870e-f763317865e7</id>
+	<title>KillKeys</title>
+	<link href="http://killkeys.googlecode.com/svn/wiki/feed.xml" rel="self" />
+	<link href="http://code.google.com/p/killkeys/" />
+	<updated>2008-09-26T15:30:00Z</updated>
+	<author>
+		<name>Stefan Sundin</name>
+		<email>recover89@gmail.com</email>
+	</author>
+
+	<entry>
+		<id>urn:uuid:727fcae8-f419-41ce-855c-89f2d0ee09ee</id>
+		<title>This feed</title>
+		<link href="http://code.google.com/p/killkeys/" />
+		<updated>2008-09-26T15:30:00Z</updated>
+		<content type="html">
+Hi everyone.&lt;br/>
+This feed will let you know when there's any update to KillKeys.&lt;br/>
+There's also another feed available &lt;a href="http://superf4.googlecode.com/svn/wiki/all.xml">here&lt;/a> which will let you know if there's an update to any of programs.&lt;br/>
+You can take a look at all my programs &lt;a href="http://code.google.com/u/recover89/">here&lt;/a>.
+		</content>
+	</entry>
+</feed>
