@@ -1,5 +1,5 @@
 /*
-	KillKeys - Disable certain keys from working
+	KillKeys - Disable keys from working
 	Copyright (C) 2008  Stefan Sundin (recover89@gmail.com)
 	
 	This program is free software: you can redistribute it and/or modify
@@ -21,59 +21,90 @@
 #include <time.h>
 #include <windows.h>
 
-static int keys[100];
+static int *keys;
 static int numkeys=0;
+static int *keys_fullscreen;
+static int numkeys_fullscreen=0;
+static FILE *log;
 
-static char msg[100];
+static char txt[100];
 
-_declspec(dllexport) void Settings(int *new_keys, int length) {
-	int i;
-	for (i=0; i < length; i++) {
-		keys[i]=new_keys[i];
-	}
-	numkeys=length;
+char* GetTimestamp(char *buf, size_t maxsize, char *format) {
+	time_t rawtime;
+	struct tm *timeinfo;
+	time(&rawtime);
+	timeinfo=localtime(&rawtime);
+	strftime(buf,maxsize,format,timeinfo);
+	return buf;
+}
+
+_declspec(dllexport) void Settings(int *new_keys, int new_numkeys, int *new_keys_fullscreen, int new_numkeys_fullscreen) {
+	keys=new_keys;
+	numkeys=new_numkeys;
+	keys_fullscreen=new_keys_fullscreen;
+	numkeys_fullscreen=new_numkeys_fullscreen;
 }
 
 _declspec(dllexport) LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
-	if (nCode == HC_ACTION) {
+	if (nCode == HC_ACTION && (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN)) {
 		int vkey=((PKBDLLHOOKSTRUCT)lParam)->vkCode;
-		
+		HWND hwnd=GetForegroundWindow();
 		int stop=0;
+		int fullscreen=0;
 		int i;
-		for (i=0; i < numkeys; i++) {
-			if (vkey == keys[i]) {
-				stop=1;
-				break;
+		
+		//Get window and desktop size
+		RECT wnd;
+		if (GetWindowRect(hwnd,&wnd) == 0) {
+			fprintf(log,"Error: GetWindowRect() failed (error code: %d) in file %s, line %d.\n",GetLastError(),__FILE__,__LINE__);
+			fflush(log);
+			return 0;
+		}
+		RECT desk;
+		if (GetWindowRect(GetDesktopWindow(),&desk) == 0) {
+			fprintf(log,"Error: GetWindowRect() failed (error code: %d) in file %s, line %d.\n",GetLastError(),__FILE__,__LINE__);
+			fflush(log);
+			return 0;
+		}
+		
+		//Are we in a fullscreen window?
+		if (wnd.left == desk.left && wnd.top == desk.top && wnd.right == desk.right && wnd.bottom == desk.bottom) {
+			fullscreen=1;
+		}
+		//The desktop (explorer.exe) doesn't count as a fullscreen window.
+		//HWND desktop = FindWindow("WorkerW", NULL); //This is the window that's focused after pressing [the windows button]+D
+		HWND desktop = FindWindow("Progman", "Program Manager");
+		if (fullscreen && desktop != NULL) {
+			DWORD desktop_pid, hwnd_pid;
+			GetWindowThreadProcessId(desktop,&desktop_pid);
+			GetWindowThreadProcessId(hwnd,&hwnd_pid);
+			if (desktop_pid == hwnd_pid) {
+				fullscreen=0;
 			}
 		}
 		
+		//Check if the key should be blocked
+		if (!fullscreen) {
+			for (i=0; i < numkeys; i++) {
+				if (vkey == keys[i]) {
+					stop=1;
+					break;
+				}
+			}
+		}
+		else {
+			for (i=0; i < numkeys_fullscreen; i++) {
+				if (vkey == keys_fullscreen[i]) {
+					stop=1;
+					break;
+				}
+			}
+		}
+		
+		//Block the key
 		if (stop) {
-			//Open log
-			FILE *output;
-			if ((output=fopen("log-keyhook.txt","ab")) == NULL) {
-				sprintf(msg,"fopen() failed in file %s, line %d.",__FILE__,__LINE__);
-				MessageBox(NULL, msg, "KillKeys Error", MB_ICONERROR|MB_OK);
-				return 1;
-			}
-			
-			//Print timestamp
-			time_t rawtime;
-			struct tm *timeinfo;
-			time(&rawtime);
-			timeinfo=localtime(&rawtime);
-			strftime(msg,sizeof(msg),"[%Y-%m-%d %H:%M:%S]",timeinfo);
-			fprintf(output,"\n%s\n",msg);
-			
-			fprintf(output,"%02X pressed, stopped!\n",vkey);
-			
-			//Close log
-			if (fclose(output) == EOF) {
-				sprintf(msg,"fclose() failed in file %s, line %d.",__FILE__,__LINE__);
-				fprintf(output,"%s\n",msg);
-				fclose(output);
-				MessageBox(NULL, msg, "KillKeys Error", MB_ICONERROR|MB_OK);
-				return 1;
-			}
+			fprintf(log,"%s Blocking key %02X%s.\n",GetTimestamp(txt,sizeof(txt),"[%Y-%m-%d %H:%M:%S]"),vkey,(fullscreen?" in fullscreen window":""));
+			fflush(log);
 			
 			//Stop this key
 			return 1;
@@ -84,5 +115,17 @@ _declspec(dllexport) LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPA
 }
 
 BOOL APIENTRY DllMain(HINSTANCE hInstance, DWORD reason, LPVOID reserved) {
+	if (reason == DLL_PROCESS_ATTACH) {
+		//Open log
+		log=fopen("killkeys-log.txt","ab");
+		fprintf(log,"\n%s ",GetTimestamp(txt,sizeof(txt),"[%Y-%m-%d %H:%M:%S]"));
+		fprintf(log,"New session.\n");
+		fflush(log);
+	}
+	else if (reason == DLL_PROCESS_DETACH) {
+		//Close log
+		fclose(log);
+	}
+	
 	return TRUE;
 }

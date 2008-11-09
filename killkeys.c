@@ -1,5 +1,5 @@
 /*
-	KillKeys - Disable certain keys from working
+	KillKeys - Disable keys from working
 	Copyright (C) 2008  Stefan Sundin (recover89@gmail.com)
 	
 	This program is free software: you can redistribute it and/or modify
@@ -19,9 +19,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <windows.h>
+#include <shlwapi.h>
 
-//Tray messages
+//Messages
 #define WM_ICONTRAY            WM_USER+1
+#define WM_ADDTRAY             WM_USER+2 //This value has to remain constant through versions
 #define SWM_TOGGLE             WM_APP+1
 #define SWM_HIDE               WM_APP+2
 #define SWM_AUTOSTART_ON       WM_APP+3
@@ -32,28 +34,44 @@
 #define SWM_EXIT               WM_APP+8
 
 //Stuff
-LPSTR szClassName="KillKeys";
 LRESULT CALLBACK MyWndProc(HWND, UINT, WPARAM, LPARAM);
 
-//Hook data
-static HINSTANCE hinstDLL;
-static HOOKPROC hkprcSysMsg;
-static HHOOK hhookSysMsg;
-
-//Global info
 static HICON icon[2];
 static NOTIFYICONDATA traydata;
 static UINT WM_TASKBARCREATED;
 static int tray_added=0;
-static int hook_installed=0;
 static int hide=0;
 
-static int keys[100];
+static HINSTANCE hinstDLL;
+static HHOOK keyhook;
+static int hook_installed=0;
+static int *keys=NULL;
 static int numkeys=0;
+static int *keys_fullscreen=NULL;
+static int numkeys_fullscreen=0;
 
-static char msg[100];
+static char txt[1000];
 
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR szCmdLine, int iCmdShow) {
+	//Look for previous instance
+	HWND previnst;
+	if ((previnst=FindWindow("KillKeys",NULL)) != NULL) {
+		SendMessage(previnst,WM_ADDTRAY,0,0);
+		return 0;
+	}
+
+	//Change working directory
+	char path[MAX_PATH];
+	if (GetModuleFileName(NULL, path, sizeof(path)) == 0) {
+		sprintf(txt,"GetModuleFileName() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
+		MessageBox(NULL, txt, "KillKeys Warning", MB_ICONWARNING|MB_OK);
+	}
+	PathRemoveFileSpec(path);
+	if (SetCurrentDirectory(path) == 0) {
+		sprintf(txt,"SetCurrentDirectory() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
+		MessageBox(NULL, txt, "KillKeys Warning", MB_ICONWARNING|MB_OK);
+	}
+
 	//Check command line
 	if (!strcmp(szCmdLine,"-hide")) {
 		hide=1;
@@ -70,58 +88,53 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR szCmdLine, in
 	wnd.hCursor=LoadImage(NULL, IDC_ARROW, IMAGE_CURSOR, 0, 0, LR_DEFAULTCOLOR);
 	wnd.hbrBackground=(HBRUSH)(COLOR_BACKGROUND+1);
 	wnd.lpszMenuName=NULL;
-	wnd.lpszClassName=szClassName;
+	wnd.lpszClassName="KillKeys";
 	
 	//Register class
 	if (RegisterClass(&wnd) == 0) {
-		sprintf(msg,"RegisterClass() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
-		MessageBox(NULL, msg, "KillKeys Error", MB_ICONERROR|MB_OK);
+		sprintf(txt,"RegisterClass() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
+		MessageBox(NULL, txt, "KillKeys Error", MB_ICONERROR|MB_OK);
 		return 1;
 	}
 	
 	//Create window
-	HWND hWnd;
-	hWnd=CreateWindow(szClassName, "KillKeys", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, NULL, NULL, hInst, NULL);
-	//ShowWindow(hWnd, iCmdShow); //Show
-	//UpdateWindow(hWnd); //Update
+	HWND hwnd=CreateWindow(wnd.lpszClassName, "KillKeys", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, NULL, NULL, hInst, NULL);
 	
-	if (!hide) {
-		//Register TaskbarCreated so we can readd the tray icon if explorer.exe crashes
-		if ((WM_TASKBARCREATED=RegisterWindowMessage("TaskbarCreated")) == 0) {
-			sprintf(msg,"RegisterWindowMessage() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
-			MessageBox(NULL, msg, "KillKeys Warning", MB_ICONWARNING|MB_OK);
-		}
-		
-		//Load tray icons
-		if ((icon[0] = LoadImage(hInst, "tray-disabled", IMAGE_ICON, 0, 0, LR_DEFAULTCOLOR)) == NULL) {
-			sprintf(msg,"LoadImage() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
-			MessageBox(NULL, msg, "KillKeys Error", MB_ICONERROR|MB_OK);
-			PostQuitMessage(1);
-		}
-		if ((icon[1] = LoadImage(hInst, "tray-enabled", IMAGE_ICON, 0, 0, LR_DEFAULTCOLOR)) == NULL) {
-			sprintf(msg,"LoadImage() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
-			MessageBox(NULL, msg, "KillKeys Error", MB_ICONERROR|MB_OK);
-			PostQuitMessage(1);
-		}
-		
-		//Create icondata
-		traydata.cbSize=sizeof(NOTIFYICONDATA);
-		traydata.uID=0;
-		traydata.uFlags=NIF_MESSAGE|NIF_ICON|NIF_TIP;
-		traydata.hWnd=hWnd;
-		traydata.uCallbackMessage=WM_ICONTRAY;
-		strncpy(traydata.szTip,"KillKeys (disabled)",sizeof(traydata.szTip));
-		traydata.hIcon=icon[0];
-		
-		//Add tray icon
-		AddTray();
+	//Register TaskbarCreated so we can re-add the tray icon if explorer.exe crashes
+	if ((WM_TASKBARCREATED=RegisterWindowMessage("TaskbarCreated")) == 0) {
+		sprintf(txt,"RegisterWindowMessage() failed (error code: %d) in file %s, line %d.\nThis means the tray icon won't be added if (or should I say when) explorer.exe crashes.",GetLastError(),__FILE__,__LINE__);
+		MessageBox(NULL, txt, "KillKeys Warning", MB_ICONWARNING|MB_OK);
 	}
+	
+	//Load tray icons
+	if ((icon[0] = LoadImage(hInst, "tray-disabled", IMAGE_ICON, 0, 0, LR_DEFAULTCOLOR)) == NULL) {
+		sprintf(txt,"LoadImage() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
+		MessageBox(NULL, txt, "KillKeys Error", MB_ICONERROR|MB_OK);
+		PostQuitMessage(1);
+	}
+	if ((icon[1] = LoadImage(hInst, "tray-enabled", IMAGE_ICON, 0, 0, LR_DEFAULTCOLOR)) == NULL) {
+		sprintf(txt,"LoadImage() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
+		MessageBox(NULL, txt, "KillKeys Error", MB_ICONERROR|MB_OK);
+		PostQuitMessage(1);
+	}
+	
+	//Create icondata
+	traydata.cbSize=sizeof(NOTIFYICONDATA);
+	traydata.uID=0;
+	traydata.uFlags=NIF_MESSAGE|NIF_ICON|NIF_TIP;
+	traydata.hWnd=hwnd;
+	traydata.uCallbackMessage=WM_ICONTRAY;
+	
+	//Add tray icon
+	UpdateTray();
 	
 	//Install hook
 	InstallHook();
 	
+	//Add tray if hook failed, even though -hide was supplied
 	if (!hook_installed && hide) {
-		PostQuitMessage(1);
+		hide=0;
+		UpdateTray();
 	}
 	
 	//Message loop
@@ -133,18 +146,17 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR szCmdLine, in
 	return msg.wParam;
 }
 
-void ShowContextMenu(HWND hWnd) {
+void ShowContextMenu(HWND hwnd) {
 	POINT pt;
 	GetCursorPos(&pt);
 	HMENU hMenu, hAutostartMenu;
 	if ((hMenu = CreatePopupMenu()) == NULL) {
-		sprintf(msg,"CreatePopupMenu() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
-		MessageBox(NULL, msg, "KillKeys Warning", MB_ICONWARNING|MB_OK);
+		sprintf(txt,"CreatePopupMenu() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
+		MessageBox(NULL, txt, "KillKeys Warning", MB_ICONWARNING|MB_OK);
 	}
 	
 	//Toggle
 	InsertMenu(hMenu, -1, MF_BYPOSITION, SWM_TOGGLE, (hook_installed?"Disable":"Enable"));
-	//InsertMenu(hMenu, -1, MF_BYPOSITION|MF_SEPARATOR, SWM_ABOUT, "");
 	
 	//Hide
 	InsertMenu(hMenu, -1, MF_BYPOSITION, SWM_HIDE, "Hide tray");
@@ -155,27 +167,27 @@ void ShowContextMenu(HWND hWnd) {
 	//Open key
 	HKEY key;
 	if (RegOpenKeyEx(HKEY_CURRENT_USER,"Software\\Microsoft\\Windows\\CurrentVersion\\Run",0,KEY_QUERY_VALUE,&key) != ERROR_SUCCESS) {
-		sprintf(msg,"RegOpenKeyEx() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
-		MessageBox(NULL, msg, "KillKeys Warning", MB_ICONWARNING|MB_OK);
+		sprintf(txt,"RegOpenKeyEx() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
+		MessageBox(NULL, txt, "KillKeys Warning", MB_ICONWARNING|MB_OK);
 	}
 	//Read value
 	char autostart_value[MAX_PATH+10];
 	DWORD len=sizeof(autostart_value);
 	DWORD res=RegQueryValueEx(key,"KillKeys",NULL,NULL,(LPBYTE)autostart_value,&len);
 	if (res != ERROR_FILE_NOT_FOUND && res != ERROR_SUCCESS) {
-		sprintf(msg,"RegQueryValueEx() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
-		MessageBox(NULL, msg, "KillKeys Warning", MB_ICONWARNING|MB_OK);
+		sprintf(txt,"RegQueryValueEx() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
+		MessageBox(NULL, txt, "KillKeys Warning", MB_ICONWARNING|MB_OK);
 	}
 	//Close key
 	if (RegCloseKey(key) != ERROR_SUCCESS) {
-		sprintf(msg,"RegCloseKey() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
-		MessageBox(NULL, msg, "KillKeys Warning", MB_ICONWARNING|MB_OK);
+		sprintf(txt,"RegCloseKey() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
+		MessageBox(NULL, txt, "KillKeys Warning", MB_ICONWARNING|MB_OK);
 	}
 	//Get path
 	char path[MAX_PATH];
 	if (GetModuleFileName(NULL,path,sizeof(path)) == 0) {
-		sprintf(msg,"GetModuleFileName() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
-		MessageBox(NULL, msg, "KillKeys Warning", MB_ICONWARNING|MB_OK);
+		sprintf(txt,"GetModuleFileName() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
+		MessageBox(NULL, txt, "KillKeys Warning", MB_ICONWARNING|MB_OK);
 	}
 	//Compare
 	char pathcmp[MAX_PATH+10];
@@ -190,13 +202,13 @@ void ShowContextMenu(HWND hWnd) {
 	}
 	
 	if ((hAutostartMenu = CreatePopupMenu()) == NULL) {
-		sprintf(msg,"CreatePopupMenu() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
-		MessageBox(NULL, msg, "KillKeys Warning", MB_ICONWARNING|MB_OK);
+		sprintf(txt,"CreatePopupMenu() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
+		MessageBox(NULL, txt, "KillKeys Warning", MB_ICONWARNING|MB_OK);
 	}
 	InsertMenu(hAutostartMenu, -1, MF_BYPOSITION|(autostart_enabled?MF_CHECKED:0), (autostart_enabled?SWM_AUTOSTART_OFF:SWM_AUTOSTART_ON), "Autostart");
 	InsertMenu(hAutostartMenu, -1, MF_BYPOSITION|(autostart_hide?MF_CHECKED:0), (autostart_hide?SWM_AUTOSTART_HIDE_OFF:SWM_AUTOSTART_HIDE_ON), "Hide tray");
 	InsertMenu(hMenu, -1, MF_BYPOSITION|MF_POPUP, (UINT)hAutostartMenu, "Autostart");
-	InsertMenu(hMenu, -1, MF_BYPOSITION|MF_SEPARATOR, SWM_ABOUT, "");
+	InsertMenu(hMenu, -1, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
 	
 	//About
 	InsertMenu(hMenu, -1, MF_BYPOSITION, SWM_ABOUT, "About");
@@ -205,26 +217,27 @@ void ShowContextMenu(HWND hWnd) {
 	InsertMenu(hMenu, -1, MF_BYPOSITION, SWM_EXIT, "Exit");
 
 	//Must set window to the foreground, or else the menu won't disappear when clicking outside it
-	SetForegroundWindow(hWnd);
+	SetForegroundWindow(hwnd);
 
-	TrackPopupMenu(hMenu, TPM_BOTTOMALIGN, pt.x, pt.y, 0, hWnd, NULL );
+	TrackPopupMenu(hMenu, TPM_BOTTOMALIGN, pt.x, pt.y, 0, hwnd, NULL );
 	DestroyMenu(hMenu);
 }
 
-int AddTray() {
-	if (tray_added) {
-		//Tray already added
-		return 1;
-	}
+int UpdateTray() {
+	strncpy(traydata.szTip,(hook_installed?"KillKeys (enabled)":"KillKeys (disabled)"),sizeof(traydata.szTip));
+	traydata.hIcon=icon[hook_installed];
 	
-	if (Shell_NotifyIcon(NIM_ADD,&traydata) == FALSE) {
-		sprintf(msg,"Shell_NotifyIcon() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
-		MessageBox(NULL, msg, "KillKeys Warning", MB_ICONWARNING|MB_OK);
-		return 1;
+	//Only add or modify if not hidden
+	if (!hide) {
+		if (Shell_NotifyIcon((tray_added?NIM_MODIFY:NIM_ADD),&traydata) == FALSE) {
+			sprintf(txt,"Failed to add tray icon.\n\nShell_NotifyIcon() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
+			MessageBox(NULL, txt, "KillKeys Warning", MB_ICONWARNING|MB_OK);
+			return 1;
+		}
+		
+		//Success
+		tray_added=1;
 	}
-	
-	//Success
-	tray_added=1;
 }
 
 int RemoveTray() {
@@ -234,8 +247,8 @@ int RemoveTray() {
 	}
 	
 	if (Shell_NotifyIcon(NIM_DELETE,&traydata) == FALSE) {
-		sprintf(msg,"Shell_NotifyIcon() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
-		MessageBox(NULL, msg, "KillKeys Warning", MB_ICONWARNING|MB_OK);
+		sprintf(txt,"Failed to remove tray icon.\n\nShell_NotifyIcon() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
+		MessageBox(NULL, txt, "KillKeys Warning", MB_ICONWARNING|MB_OK);
 		return 1;
 	}
 	
@@ -249,64 +262,116 @@ int InstallHook() {
 		return 1;
 	}
 	
-	//Load keys from config.txt
+	//Read config.txt to buffer
 	FILE *config;
 	if ((config=fopen("config.txt","rb")) == NULL) {
-		sprintf(msg,"fopen() failed in file %s, line %d.",__FILE__,__LINE__);
-		MessageBox(NULL, msg, "KillKeys Warning", MB_ICONWARNING|MB_OK);
+		sprintf(txt,"fopen() failed in file %s, line %d.",__FILE__,__LINE__);
+		MessageBox(NULL, txt, "KillKeys Warning", MB_ICONWARNING|MB_OK);
 		return 1;
 	}
-	numkeys=0;
-	int temp;
-	while (fscanf(config,"%02X",&temp) != EOF) {
-		keys[numkeys++]=temp;
-	}
+	fseek(config,0,SEEK_END);
+	int length=ftell(config);
+	fseek(config,0,SEEK_SET);
+	char *buffer=malloc(length+1);
+	fread(buffer,1,length,config);
+	buffer[length]='\0';
 	if (fclose(config) == EOF) {
-		sprintf(msg,"fclose() failed in file %s, line %d.",__FILE__,__LINE__);
+		sprintf(txt,"fclose() failed in file %s, line %d.",__FILE__,__LINE__);
 		fclose(config);
-		MessageBox(NULL, msg, "KillKeys Warning", MB_ICONWARNING|MB_OK);
+		MessageBox(NULL, txt, "KillKeys Warning", MB_ICONWARNING|MB_OK);
 		return 1;
 	}
 	
+	//Parse buffer
+	numkeys=0;
+	numkeys_fullscreen=0;
+	int keys_alloc=0;
+	//Loop buffer
+	int **add_keys=&keys; //We need a pointer to a pointer to be able to realloc without having to know if add_keys points to keys or keys_fullscreen
+	int *add_numkeys=&numkeys;
+	int pos=0;
+	while (buffer[pos] != '\0') {
+		if (buffer[pos] == '\r') {
+			//Ignore \r
+			pos++;
+		}
+		else if (buffer[pos] == '\n') {
+			//Switch to keys_fullscreen or stop parsing
+			if (*add_keys == keys) {
+				add_keys=&keys_fullscreen;
+				add_numkeys=&numkeys_fullscreen;
+				keys_alloc=0;
+			}
+			else {
+				break;
+			}
+			pos++;
+		}
+		else if (buffer[pos] == ' ') {
+			//Ignore space
+			pos++;
+		}
+		else {
+			//Parse key
+			int temp;
+			int numbytesread;
+			if (sscanf(buffer+pos,"%02X%n",&temp,&numbytesread) != EOF) {
+				//Make sure we have enough space
+				if (*add_numkeys == keys_alloc) {
+					keys_alloc+=100;
+					if ((*add_keys=realloc(*add_keys,keys_alloc*sizeof(int))) == NULL) {
+						sprintf(txt,"realloc() failed in file %s, line %d.",__FILE__,__LINE__);
+						MessageBox(NULL, txt, "KillKeys Warning", MB_ICONWARNING|MB_OK);
+						return 1;
+					}
+				}
+				//Store key
+				(*add_keys)[(*add_numkeys)++]=temp;
+				pos+=numbytesread;
+			}
+		}
+	}
+	
+	//Free buffer
+	free(buffer);
+	
 	//Load dll
 	if ((hinstDLL=LoadLibrary((LPCTSTR)"keyhook.dll")) == NULL) {
-		sprintf(msg,"LoadLibrary() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
-		MessageBox(NULL, msg, "KillKeys Warning", MB_ICONWARNING|MB_OK);
+		sprintf(txt,"Failed to load keyhook.dll.\nThis probably means that the file is missing.\nYou can try to download KillKeys again from the website.\n\nError message:\nLoadLibrary() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
+		MessageBox(NULL, txt, "KillKeys Warning", MB_ICONWARNING|MB_OK);
 		return 1;
 	}
 	
 	//Get address to settings function
 	typedef void (*pfunc)();
-	pfunc Settings = (pfunc)GetProcAddress(hinstDLL,"Settings");
-	
-	//Give keyhook settings
-	Settings(keys, numkeys);
-	
-	//Get address to keyboard hook (beware name mangling)
-	if ((hkprcSysMsg=(HOOKPROC)GetProcAddress(hinstDLL,"KeyboardProc@12")) == NULL) {
-		sprintf(msg,"GetProcAddress() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
-		MessageBox(NULL, msg, "KillKeys Warning", MB_ICONWARNING|MB_OK);
+	pfunc Settings;
+	if ((Settings=(pfunc)GetProcAddress(hinstDLL,"Settings")) == NULL) {
+		sprintf(txt,"GetProcAddress() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
+		MessageBox(NULL, txt, "KillKeys Warning", MB_ICONWARNING|MB_OK);
 		return 1;
 	}
 	
-	//Set up the hook
-	if ((hhookSysMsg=SetWindowsHookEx(WH_KEYBOARD_LL,hkprcSysMsg,hinstDLL,0)) == NULL) {
-		sprintf(msg,"SetWindowsHookEx() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
-		MessageBox(NULL, msg, "KillKeys Warning", MB_ICONWARNING|MB_OK);
+	//Give keyhook settings
+	Settings(keys, numkeys, keys_fullscreen, numkeys_fullscreen);
+	
+	//Get address to keyboard hook (beware name mangling)
+	HOOKPROC procaddr;
+	if ((procaddr=(HOOKPROC)GetProcAddress(hinstDLL,"KeyboardProc@12")) == NULL) {
+		sprintf(txt,"GetProcAddress() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
+		MessageBox(NULL, txt, "KillKeys Warning", MB_ICONWARNING|MB_OK);
+		return 1;
+	}
+	
+	//Set up the keyboard hook
+	if ((keyhook=SetWindowsHookEx(WH_KEYBOARD_LL,procaddr,hinstDLL,0)) == NULL) {
+		sprintf(txt,"SetWindowsHookEx() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
+		MessageBox(NULL, txt, "KillKeys Warning", MB_ICONWARNING|MB_OK);
 		return 1;
 	}
 	
 	//Success
 	hook_installed=1;
-	traydata.hIcon=icon[1];
-	strncpy(traydata.szTip,"KillKeys (enabled)",sizeof(traydata.szTip));
-	if (tray_added) {
-		if (Shell_NotifyIcon(NIM_MODIFY,&traydata) == FALSE) {
-			sprintf(msg,"Shell_NotifyIcon() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
-			MessageBox(NULL, msg, "KillKeys Warning", MB_ICONWARNING|MB_OK);
-			return 1;
-		}
-	}
+	UpdateTray();
 	return 0;
 }
 
@@ -316,31 +381,31 @@ int RemoveHook() {
 		return 1;
 	}
 	
-	//Remove hook
-	if (UnhookWindowsHookEx(hhookSysMsg) == 0) {
-		sprintf(msg,"UnhookWindowsHookEx() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
-		MessageBox(NULL, msg, "KillKeys Warning", MB_ICONWARNING|MB_OK);
+	//Remove keyboard hook
+	if (UnhookWindowsHookEx(keyhook) == 0) {
+		sprintf(txt,"UnhookWindowsHookEx() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
+		MessageBox(NULL, txt, "KillKeys Warning", MB_ICONWARNING|MB_OK);
 		return 1;
 	}
 	
 	//Unload dll
 	if (FreeLibrary(hinstDLL) == 0) {
-		sprintf(msg,"FreeLibrary() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
-		MessageBox(NULL, msg, "KillKeys Warning", MB_ICONWARNING|MB_OK);
+		sprintf(txt,"FreeLibrary() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
+		MessageBox(NULL, txt, "KillKeys Warning", MB_ICONWARNING|MB_OK);
 		return 1;
 	}
 	
+	//Free keys
+	numkeys=0;
+	numkeys_fullscreen=0;
+	free(keys);
+	free(keys_fullscreen);
+	keys=NULL;
+	keys_fullscreen=NULL;
+	
 	//Success
 	hook_installed=0;
-	traydata.hIcon=icon[0];
-	strncpy(traydata.szTip,"KillKeys (disabled)",sizeof(traydata.szTip));
-	if (tray_added) {
-		if (Shell_NotifyIcon(NIM_MODIFY,&traydata) == FALSE) {
-			sprintf(msg,"Shell_NotifyIcon() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
-			MessageBox(NULL, msg, "KillKeys Warning", MB_ICONWARNING|MB_OK);
-			return 1;
-		}
-	}
+	UpdateTray();
 	return 0;
 }
 
@@ -357,54 +422,44 @@ void SetAutostart(int on, int hide) {
 	//Open key
 	HKEY key;
 	if (RegOpenKeyEx(HKEY_CURRENT_USER,"Software\\Microsoft\\Windows\\CurrentVersion\\Run",0,KEY_SET_VALUE,&key) != ERROR_SUCCESS) {
-		sprintf(msg,"RegOpenKeyEx() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
-		MessageBox(NULL, msg, "KillKeys Warning", MB_ICONWARNING|MB_OK);
+		sprintf(txt,"RegOpenKeyEx() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
+		MessageBox(NULL, txt, "KillKeys Warning", MB_ICONWARNING|MB_OK);
 		return;
 	}
 	if (on) {
 		//Get path
 		char path[MAX_PATH];
 		if (GetModuleFileName(NULL,path,sizeof(path)) == 0) {
-			sprintf(msg,"GetModuleFileName() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
-			MessageBox(NULL, msg, "KillKeys Warning", MB_ICONWARNING|MB_OK);
+			sprintf(txt,"GetModuleFileName() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
+			MessageBox(NULL, txt, "KillKeys Warning", MB_ICONWARNING|MB_OK);
 			return;
 		}
 		//Add
 		char value[MAX_PATH+10];
-		if (hide) {
-			sprintf(value,"\"%s\" -hide",path);
-			if (RegSetValueEx(key,"KillKeys",0,REG_SZ,value,strlen(value)+1) != ERROR_SUCCESS) {
-				sprintf(msg,"RegSetValueEx() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
-				MessageBox(NULL, msg, "KillKeys Warning", MB_ICONWARNING|MB_OK);
-				return;
-			}
-		}
-		else {
-			sprintf(value,"\"%s\"",path);
-			if (RegSetValueEx(key,"KillKeys",0,REG_SZ,value,strlen(value)+1) != ERROR_SUCCESS) {
-				sprintf(msg,"RegSetValueEx() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
-				MessageBox(NULL, msg, "KillKeys Warning", MB_ICONWARNING|MB_OK);
-				return;
-			}
+		sprintf(value,(hide?"\"%s\" -hide":"\"%s\""),path);
+		if (RegSetValueEx(key,"KillKeys",0,REG_SZ,value,strlen(value)+1) != ERROR_SUCCESS) {
+			sprintf(txt,"RegSetValueEx() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
+			MessageBox(NULL, txt, "KillKeys Warning", MB_ICONWARNING|MB_OK);
+			return;
 		}
 	}
 	else {
 		//Remove
 		if (RegDeleteValue(key,"KillKeys") != ERROR_SUCCESS) {
-			sprintf(msg,"RegDeleteValue() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
-			MessageBox(NULL, msg, "KillKeys Warning", MB_ICONWARNING|MB_OK);
+			sprintf(txt,"RegDeleteValue() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
+			MessageBox(NULL, txt, "KillKeys Warning", MB_ICONWARNING|MB_OK);
 			return;
 		}
 	}
 	//Close key
 	if (RegCloseKey(key) != ERROR_SUCCESS) {
-		sprintf(msg,"RegCloseKey() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
-		MessageBox(NULL, msg, "KillKeys Warning", MB_ICONWARNING|MB_OK);
+		sprintf(txt,"RegCloseKey() failed (error code: %d) in file %s, line %d.",GetLastError(),__FILE__,__LINE__);
+		MessageBox(NULL, txt, "KillKeys Warning", MB_ICONWARNING|MB_OK);
 		return;
 	}
 }
 
-LRESULT CALLBACK MyWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 	if (msg == WM_COMMAND) {
 		int wmId=LOWORD(wParam), wmEvent=HIWORD(wParam);
 		if (wmId == SWM_TOGGLE) {
@@ -427,17 +482,36 @@ LRESULT CALLBACK MyWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 			SetAutostart(1,0);
 		}
 		else if (wmId == SWM_ABOUT) {
-			char buffer[250]="";
-			int i;
-			for (i=0; i < numkeys; i++) {
-				sprintf(buffer, "%s %02X", buffer, keys[i]);
+			sprintf(txt, "KillKeys - 0.3\n\
+http://killkeys.googlecode.com/\n\
+recover89@gmail.com\n\
+\n\
+When enabled, keys specified in config.txt will be disabled.\n\
+By default, both windows keys and the menu key are disabled.");
+			if (hook_installed) {
+				sprintf(txt, "%s\nKeys disabled when not in fullscreen:",txt);
+				int i;
+				for (i=0; i < numkeys; i++) {
+					sprintf(txt, "%s %02X", txt, keys[i]);
+				}
+				sprintf(txt, "%s\nKeys disabled when in fullscreen:", txt);
+				for (i=0; i < numkeys_fullscreen; i++) {
+					sprintf(txt, "%s %02X", txt, keys_fullscreen[i]);
+				}
 			}
-			char buffer2[1300];
-			sprintf(buffer2, "KillKeys - 0.2\nhttp://killkeys.googlecode.com/\nrecover89@gmail.com\n\nWhen enabled, keys specified in config.txt will be disabled.\nBy default, both windows keys and the menu key are disabled.\nKeys disabled now:%s\n\nInstructions on how to edit the disabled keys in info.txt\n\nYou can use -hide as a parameter to hide the tray icon.\n\nSend feedback to recover89@gmail.com", buffer);
-			MessageBox(NULL, buffer2, "About KillKeys", MB_ICONINFORMATION|MB_OK);
+			else {
+				sprintf(txt, "%s\nEnable KillKeys to see which keys will be blocked.",txt);
+			}
+			sprintf(txt, "%s\n\
+\nInstructions on how to edit the disabled keys in info.txt\n\
+\n\
+You can use -hide as a parameter to hide the tray icon.\n\
+\n\
+Send feedback to recover89@gmail.com",txt);
+			MessageBox(NULL, txt, "About KillKeys", MB_ICONINFORMATION|MB_OK);
 		}
 		else if (wmId == SWM_EXIT) {
-			DestroyWindow(hWnd);
+			DestroyWindow(hwnd);
 		}
 	}
 	else if (msg == WM_ICONTRAY) {
@@ -445,14 +519,12 @@ LRESULT CALLBACK MyWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 			ToggleHook();
 		}
 		else if (lParam == WM_RBUTTONDOWN) {
-			ShowContextMenu(hWnd);
+			ShowContextMenu(hwnd);
 		}
 	}
 	else if (msg == WM_TASKBARCREATED) {
 		tray_added=0;
-		if (!hide) {
-			AddTray();
-		}
+		UpdateTray();
 	}
 	else if (msg == WM_DESTROY) {
 		if (hook_installed) {
@@ -464,5 +536,9 @@ LRESULT CALLBACK MyWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 		PostQuitMessage(0);
 		return 0;
 	}
-	return DefWindowProc(hWnd, msg, wParam, lParam);
+	else if (msg == WM_ADDTRAY) {
+		hide=0;
+		UpdateTray();
+	}
+	return DefWindowProc(hwnd, msg, wParam, lParam);
 }
