@@ -48,6 +48,7 @@ _declspec(dllexport) void Settings(int *new_keys, int new_numkeys, int *new_keys
 _declspec(dllexport) LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
 	if (nCode == HC_ACTION && (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN)) {
 		int vkey=((PKBDLLHOOKSTRUCT)lParam)->vkCode;
+		
 		HWND hwnd=GetForegroundWindow();
 		int stop=0;
 		int fullscreen=0;

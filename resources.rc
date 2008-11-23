@@ -23,8 +23,9 @@ BEGIN
 			VALUE "FileDescription", "KillKeys"
 			VALUE "FileVersion", "0.3"
 			VALUE "InternalName", "killkeys"
-			VALUE "LegalCopyright", "© Stefan Sundin 2008"
 			VALUE "OriginalFilename", "KillKeys.exe"
+			VALUE "CompanyName", "Stefan Sundin"
+			VALUE "LegalCopyright", "© Stefan Sundin 2008"
 		END
 	END
 	BLOCK "VarFileInfo"
