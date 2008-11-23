@@ -17,7 +17,7 @@ if "%1" == "all" (
 		if not exist "build/%%f/KillKeys" (
 			mkdir "build\%%f\KillKeys"
 		)
-		copy "localization/%%f/info.txt" "build/%%f/KillKeys/info.txt"
+		copy "localization\%%f\info.txt" "build/%%f/KillKeys/info.txt"
 		
 		gcc -o "build/%%f/KillKeys/KillKeys.exe" killkeys.c build/resources.o -mwindows -lshlwapi -DL10N_FILE=\"localization/%%f/strings.h\"
 		if exist "build/%%f/KillKeys/KillKeys.exe" (
