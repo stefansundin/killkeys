@@ -1,0 +1,15 @@
+#summary Directly from info.txt
+
+Check [http://killkeys.googlecode.com/svn/trunk/localization/en-US/info.txt info.txt] if there seems to be something missing. Note that info.txt can contain changes for upcoming versions.
+
+*0.3* - 2008-11-15:
+  * Added option to disable keys in fullscreen.
+  * Removed restriction of 100 keys.
+  * Renamed log-keyhook.txt to killkeys-log.txt
+
+*0.2* - 2008-06-07:
+  * Renamed to KillKeys.
+  * Read keys from config.txt.
+
+*0.1* - 2008-04-19:
+  * Initial release.
