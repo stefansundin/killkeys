@@ -529,8 +529,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 		}
 		else if (lParam == WM_RBUTTONDOWN) {
 			ShowContextMenu(hwnd);
-			sprintf(txt,"WM_TASKBARCREATED: %u",WM_TASKBARCREATED);
-			MessageBox(NULL, txt, "LBUTTONDOWN", MB_ICONINFORMATION|MB_OK);
 		}
 	}
 	else if (msg == WM_ADDTRAY) {
