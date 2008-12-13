@@ -24,18 +24,9 @@ if "%1" == "all" (
 			strip "build/%%f/KillKeys/KillKeys.exe"
 			upx --best -qq "build/%%f/KillKeys/KillKeys.exe"
 		)
-						
-		gcc -c -o "build/%%f/keyhook.o" keyhook.c
-		if exist "build/%%f/KillKeys/keyhook.o" (
-			gcc -shared -o "build/%%f/KillKeys/keyhook.dll" "build/%%f/keyhook.o"
-			strip "build/%%f/KillKeys/keyhook.dll"
-			upx --best -qq "build/%%f/KillKeys/keyhook.dll"
-		)
 	)
 ) else (
 	gcc -o KillKeys.exe killkeys.c build/resources.o -mwindows -lshlwapi
-	gcc -c -o "build/keyhook.o" keyhook.c
-	gcc -shared -o "keyhook.dll" "build/keyhook.o"
 	
 	if "%1" == "run" (
 		start KillKeys.exe

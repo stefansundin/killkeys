@@ -6,28 +6,20 @@
 	it under the terms of the GNU General Public License as published by
 	the Free Software Foundation, either version 3 of the License, or
 	(at your option) any later version.
-	
-	This program is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	GNU General Public License for more details.
-	
-	You should have received a copy of the GNU General Public License
-	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 #include <windows.h>
 #include <shlwapi.h>
 
+//Localization
 #define L10N_NAME    "KillKeys"
 #define L10N_VERSION "0.3"
-//Localization
 #ifndef L10N_FILE
 #define L10N_FILE "localization/en-US/strings.h"
 #endif
-//Include strings and output error if they are out of date
 #include L10N_FILE
 #if L10N_FILE_VERSION != 1
 #error Localization not up to date!
@@ -45,24 +37,23 @@
 #define SWM_ABOUT              WM_APP+7
 #define SWM_EXIT               WM_APP+8
 
-//Stuff
-LRESULT CALLBACK MyWndProc(HWND, UINT, WPARAM, LPARAM);
-
+//Boring stuff
+LRESULT CALLBACK WindowProc(HWND, UINT, WPARAM, LPARAM);
 static HICON icon[2];
 static NOTIFYICONDATA traydata;
-static UINT WM_TASKBARCREATED;
+static UINT WM_TASKBARCREATED=0;
 static int tray_added=0;
 static int hide=0;
+static char txt[100];
 
-static HINSTANCE hinstDLL;
-static HHOOK keyhook;
-static int hook_installed=0;
+//Cool stuff
+static HINSTANCE hinstDLL=NULL;
+static HHOOK keyhook=NULL;
 static int *keys=NULL;
 static int numkeys=0;
 static int *keys_fullscreen=NULL;
 static int numkeys_fullscreen=0;
-
-static char txt[100];
+static FILE *log;
 
 //Error message handling
 static int showerror=1;
@@ -70,7 +61,7 @@ static int showerror=1;
 LRESULT CALLBACK ErrorMsgProc(INT nCode, WPARAM wParam, LPARAM lParam) {
 	if (nCode == HCBT_ACTIVATE) {
 		//Edit the caption of the buttons
-		SetDlgItemText((HWND)wParam,IDYES,"Copy message");
+		SetDlgItemText((HWND)wParam,IDYES,"Copy error");
 		SetDlgItemText((HWND)wParam,IDNO,"OK");
 	}
 	return 0;
@@ -124,7 +115,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR szCmdLine, in
 	WNDCLASSEX wnd;
 	wnd.cbSize=sizeof(WNDCLASSEX);
 	wnd.style=0;
-	wnd.lpfnWndProc=MyWndProc;
+	wnd.lpfnWndProc=WindowProc;
 	wnd.cbClsExtra=0;
 	wnd.cbWndExtra=0;
 	wnd.hInstance=hInst;
@@ -166,11 +157,11 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR szCmdLine, in
 	//Update tray icon
 	UpdateTray();
 	
-	//Install hook
-	InstallHook();
+	//Hook keyboard
+	HookKeyboard();
 	
 	//Add tray if hook failed, even though -hide was supplied
-	if (!hook_installed && hide) {
+	if (hide && !keyhook) {
 		hide=0;
 		UpdateTray();
 	}
@@ -190,7 +181,7 @@ void ShowContextMenu(HWND hwnd) {
 	HMENU hMenu=CreatePopupMenu();
 	
 	//Toggle
-	InsertMenu(hMenu, -1, MF_BYPOSITION, SWM_TOGGLE, (hook_installed?L10N_MENU_DISABLE:L10N_MENU_ENABLE));
+	InsertMenu(hMenu, -1, MF_BYPOSITION, SWM_TOGGLE, (keyhook?L10N_MENU_DISABLE:L10N_MENU_ENABLE));
 	
 	//Hide
 	InsertMenu(hMenu, -1, MF_BYPOSITION, SWM_HIDE, L10N_MENU_HIDE);
@@ -242,8 +233,8 @@ void ShowContextMenu(HWND hwnd) {
 }
 
 int UpdateTray() {
-	strncpy(traydata.szTip,(hook_installed?L10N_TRAY_ENABLED:L10N_TRAY_DISABLED),sizeof(traydata.szTip));
-	traydata.hIcon=icon[hook_installed];
+	strncpy(traydata.szTip,(keyhook?L10N_TRAY_ENABLED:L10N_TRAY_DISABLED),sizeof(traydata.szTip));
+	traydata.hIcon=icon[keyhook?1:0];
 	
 	//Only add or modify if not hidden
 	if (!hide) {
@@ -275,8 +266,8 @@ int RemoveTray() {
 void SetAutostart(int on, int hide) {
 	//Open key
 	HKEY key;
-	int error=RegOpenKeyEx(HKEY_CURRENT_USER,"Software\\Microsoft\\Windows\\CurrentVersion\\Run",0,KEY_SET_VALUE,&key);
-	if (error != ERROR_SUCCESS) {
+	int error;
+	if ((error=RegOpenKeyEx(HKEY_CURRENT_USER,"Software\\Microsoft\\Windows\\CurrentVersion\\Run",0,KEY_SET_VALUE,&key)) != ERROR_SUCCESS) {
 		Error("RegOpenKeyEx(HKEY_CURRENT_USER,'Software\\Microsoft\\Windows\\CurrentVersion\\Run')","Error opening the registry.",error,__LINE__);
 		return;
 	}
@@ -290,16 +281,14 @@ void SetAutostart(int on, int hide) {
 		//Add
 		char value[MAX_PATH+10];
 		sprintf(value,(hide?"\"%s\" -hide":"\"%s\""),path);
-		error=RegSetValueEx(key,L10N_NAME,0,REG_SZ,(LPBYTE)value,strlen(value)+1);
-		if (error != ERROR_SUCCESS) {
+		if ((error=RegSetValueEx(key,L10N_NAME,0,REG_SZ,(LPBYTE)value,strlen(value)+1)) != ERROR_SUCCESS) {
 			Error("RegSetValueEx('"L10N_NAME"')","",error,__LINE__);
 			return;
 		}
 	}
 	else {
 		//Remove
-		error=RegDeleteValue(key,L10N_NAME);
-		if (error != ERROR_SUCCESS) {
+		if ((error=RegDeleteValue(key,L10N_NAME)) != ERROR_SUCCESS) {
 			Error("RegDeleteValue('"L10N_NAME"')","",error,__LINE__);
 			return;
 		}
@@ -308,8 +297,88 @@ void SetAutostart(int on, int hide) {
 	RegCloseKey(key);
 }
 
-int InstallHook() {
-	if (hook_installed) {
+//Hook
+char* GetTimestamp(char *buf, size_t maxsize, char *format) {
+	time_t rawtime;
+	struct tm *timeinfo;
+	time(&rawtime);
+	timeinfo=localtime(&rawtime);
+	strftime(buf,maxsize,format,timeinfo);
+	return buf;
+}
+
+_declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
+	if (nCode == HC_ACTION && (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN)) {
+		int vkey=((PKBDLLHOOKSTRUCT)lParam)->vkCode;
+		
+		HWND hwnd=GetForegroundWindow();
+		int stop=0;
+		int fullscreen=0;
+		int i;
+		
+		//Get window and desktop size
+		RECT wnd;
+		if (GetWindowRect(hwnd,&wnd) == 0) {
+			fprintf(log,"Error: GetWindowRect() failed (error code: %d) in file %s, line %d.\n",GetLastError(),__FILE__,__LINE__);
+			fflush(log);
+			return 0;
+		}
+		RECT desk;
+		if (GetWindowRect(GetDesktopWindow(),&desk) == 0) {
+			fprintf(log,"Error: GetWindowRect() failed (error code: %d) in file %s, line %d.\n",GetLastError(),__FILE__,__LINE__);
+			fflush(log);
+			return 0;
+		}
+		
+		//Are we in a fullscreen window?
+		if (wnd.left == desk.left && wnd.top == desk.top && wnd.right == desk.right && wnd.bottom == desk.bottom) {
+			fullscreen=1;
+		}
+		//The desktop (explorer.exe) doesn't count as a fullscreen window.
+		//HWND desktop = FindWindow("WorkerW", NULL); //This is the window that's focused after pressing [the windows button]+D
+		HWND desktop = FindWindow("Progman", "Program Manager");
+		if (fullscreen && desktop != NULL) {
+			DWORD desktop_pid, hwnd_pid;
+			GetWindowThreadProcessId(desktop,&desktop_pid);
+			GetWindowThreadProcessId(hwnd,&hwnd_pid);
+			if (desktop_pid == hwnd_pid) {
+				fullscreen=0;
+			}
+		}
+		
+		//Check if the key should be blocked
+		if (!fullscreen) {
+			for (i=0; i < numkeys; i++) {
+				if (vkey == keys[i]) {
+					stop=1;
+					break;
+				}
+			}
+		}
+		else {
+			for (i=0; i < numkeys_fullscreen; i++) {
+				if (vkey == keys_fullscreen[i]) {
+					stop=1;
+					break;
+				}
+			}
+		}
+		
+		//Block the key
+		if (stop) {
+			fprintf(log,"%s Blocking key %02X%s.\n",GetTimestamp(txt,sizeof(txt),"[%Y-%m-%d %H:%M:%S]"),vkey,(fullscreen?" in fullscreen window":""));
+			fflush(log);
+			
+			//Stop this key
+			return 1;
+		}
+	}
+	
+    return CallNextHookEx(NULL, nCode, wParam, lParam); 
+}
+
+int HookKeyboard() {
+	if (keyhook) {
 		//Hook already installed
 		return 1;
 	}
@@ -317,8 +386,7 @@ int InstallHook() {
 	//Read config.txt to buffer
 	FILE *config;
 	if ((config=fopen("config.txt","rb")) == NULL) {
-		sprintf(txt,"fopen() failed in file %s, line %d.",__FILE__,__LINE__);
-		MessageBox(NULL, txt, "KillKeys Warning", MB_ICONWARNING|MB_OK);
+		Error("fopen('config.txt')","This probably means that config.txt is missing. You can try downloading "L10N_NAME" again.",GetLastError(),__LINE__);
 		return 1;
 	}
 	fseek(config,0,SEEK_END);
@@ -326,13 +394,8 @@ int InstallHook() {
 	fseek(config,0,SEEK_SET);
 	char *buffer=malloc(length+1);
 	fread(buffer,1,length,config);
+	fclose(config);
 	buffer[length]='\0';
-	if (fclose(config) == EOF) {
-		sprintf(txt,"fclose() failed in file %s, line %d.",__FILE__,__LINE__);
-		fclose(config);
-		MessageBox(NULL, txt, "KillKeys Warning", MB_ICONWARNING|MB_OK);
-		return 1;
-	}
 	
 	//Parse buffer
 	numkeys=0;
@@ -372,9 +435,8 @@ int InstallHook() {
 				if (*add_numkeys == keys_alloc) {
 					keys_alloc+=100;
 					if ((*add_keys=realloc(*add_keys,keys_alloc*sizeof(int))) == NULL) {
-						sprintf(txt,"realloc() failed in file %s, line %d.",__FILE__,__LINE__);
-						MessageBox(NULL, txt, "KillKeys Warning", MB_ICONWARNING|MB_OK);
-						return 1;
+						Error("realloc(*add_keys)","Out of memory?",GetLastError(),__LINE__);
+						break;
 					}
 				}
 				//Store key
@@ -387,59 +449,44 @@ int InstallHook() {
 	//Free buffer
 	free(buffer);
 	
-	//Load dll
-	if ((hinstDLL=LoadLibraryEx("keyhook.dll",NULL,0)) == NULL) {
-		Error("LoadLibraryEx('keyhook.dll')","This probably means that the file keyhook.dll is missing.\nYou can try to download "L10N_NAME" again from the website.",GetLastError(),__LINE__);
-		return 1;
-	}
+	//Open log
+	log=fopen("killkeys-log.txt","ab");
 	
-	//Get address to settings function
-	typedef void (*pfunc)();
-	pfunc Settings;
-	if ((Settings=(pfunc)GetProcAddress(hinstDLL,"Settings")) == NULL) {
-		Error("GetProcAddress('Settings')","This probably means that the file keyhook.dll is from an old version or corrupt.\nYou can try to download "L10N_NAME" again from the website.",GetLastError(),__LINE__);
+	//Load library
+	char path[MAX_PATH]=L10N_NAME;
+	GetModuleFileName(NULL, path, sizeof(path));
+	if ((hinstDLL=LoadLibrary(path)) == NULL) {
+		Error("LoadLibrary()","Check the "L10N_NAME" website if there is an update, if the latest version doesn't fix this, please report it.",GetLastError(),__LINE__);
 		return 1;
 	}
-	//Give keyhook settings
-	Settings(keys, numkeys, keys_fullscreen, numkeys_fullscreen);
 	
 	//Get address to keyboard hook (beware name mangling)
 	HOOKPROC procaddr;
-	if ((procaddr=(HOOKPROC)GetProcAddress(hinstDLL,"KeyboardProc@12")) == NULL) {
-		Error("GetProcAddress('KeyboardProc@12')","This probably means that the file keyhook.dll is from an old version or corrupt.\nYou can try to download "L10N_NAME" again from the website.",GetLastError(),__LINE__);
+	if ((procaddr=(HOOKPROC)GetProcAddress(hinstDLL,"LowLevelKeyboardProc@12")) == NULL) {
+		Error("GetProcAddress('LowLevelKeyboardProc@12')","Check the "L10N_NAME" website if there is an update, if the latest version doesn't fix this, please report it.",GetLastError(),__LINE__);
 		return 1;
 	}
-	//Set up the keyboard hook
+	
+	//Set up the hook
 	if ((keyhook=SetWindowsHookEx(WH_KEYBOARD_LL,procaddr,hinstDLL,0)) == NULL) {
 		Error("SetWindowsHookEx(WH_KEYBOARD_LL)","Check the "L10N_NAME" website if there is an update, if the latest version doesn't fix this, please report it.",GetLastError(),__LINE__);
 		return 1;
 	}
 	
 	//Success
-	hook_installed=1;
+	fprintf(log,"\n%s New session.\n",GetTimestamp(txt,sizeof(txt),"[%Y-%m-%d %H:%M:%S]"));
+	fflush(log);
 	UpdateTray();
 	return 0;
 }
 
-int RemoveHook() {
-	if (!hook_installed) {
+int UnhookKeyboard() {
+	if (!keyhook) {
 		//Hook not installed
 		return 1;
 	}
 	
-	//Remove keyboard hook
-	if (UnhookWindowsHookEx(keyhook) == 0) {
-		Error("UnhookWindowsHookEx(keyhook)","Check the "L10N_NAME" website if there is an update, if the latest version doesn't fix this, please report it.",GetLastError(),__LINE__);
-		return 1;
-	}
-	
-	//Unload dll
-	if (FreeLibrary(hinstDLL) == 0) {
-		Error("FreeLibrary()","Check the "L10N_NAME" website if there is an update, if the latest version doesn't fix this, please report it.",GetLastError(),__LINE__);
-		return 1;
-	}
-	
-	//Free keys
+	//Reset keys
 	numkeys=0;
 	numkeys_fullscreen=0;
 	free(keys);
@@ -447,28 +494,43 @@ int RemoveHook() {
 	keys=NULL;
 	keys_fullscreen=NULL;
 	
+	//Remove keyboard hook
+	if (UnhookWindowsHookEx(keyhook) == 0) {
+		Error("UnhookWindowsHookEx(keyhook)","Check the "L10N_NAME" website if there is an update, if the latest version doesn't fix this, please report it.",GetLastError(),__LINE__);
+		return 1;
+	}
+	
+	//Unload library
+	if (FreeLibrary(hinstDLL) == 0) {
+		Error("FreeLibrary()","Check the "L10N_NAME" website if there is an update, if the latest version doesn't fix this, please report it.",GetLastError(),__LINE__);
+		return 1;
+	}
+	
 	//Success
-	hook_installed=0;
+	fclose(log); //Close log
+	keyhook=NULL;
 	UpdateTray();
 	return 0;
 }
 
-void ToggleHook() {
-	if (hook_installed) {
-		RemoveHook();
+void ToggleState() {
+	if (keyhook) {
+		UnhookKeyboard();
 	}
 	else {
-		InstallHook();
+		HookKeyboard();
 	}
 }
 
-LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 	if (msg == WM_ICONTRAY) {
 		if (lParam == WM_LBUTTONDOWN) {
-			ToggleHook();
+			ToggleState();
 		}
 		else if (lParam == WM_RBUTTONDOWN) {
 			ShowContextMenu(hwnd);
+			sprintf(txt,"WM_TASKBARCREATED: %u",WM_TASKBARCREATED);
+			MessageBox(NULL, txt, "LBUTTONDOWN", MB_ICONINFORMATION|MB_OK);
 		}
 	}
 	else if (msg == WM_ADDTRAY) {
@@ -482,7 +544,7 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 	else if (msg == WM_COMMAND) {
 		int wmId=LOWORD(wParam), wmEvent=HIWORD(wParam);
 		if (wmId == SWM_TOGGLE) {
-			ToggleHook();
+			ToggleState();
 		}
 		else if (wmId == SWM_HIDE) {
 			hide=1;
@@ -501,7 +563,7 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 			SetAutostart(1,0);
 		}
 		else if (wmId == SWM_ABOUT) {
-			if (hook_installed) {
+			if (keyhook) {
 				strcpy(txt, L10N_ABOUT_KEYS1);
 				int i;
 				for (i=0; i < numkeys; i++) {
@@ -525,12 +587,8 @@ LRESULT CALLBACK MyWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 	}
 	else if (msg == WM_DESTROY) {
 		showerror=0;
-		if (hook_installed) {
-			RemoveHook();
-		}
-		if (tray_added) {
-			RemoveTray();
-		}
+		UnhookKeyboard();
+		RemoveTray();
 		PostQuitMessage(0);
 		return 0;
 	}
