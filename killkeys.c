@@ -8,43 +8,64 @@
 	(at your option) any later version.
 */
 
+#define UNICODE
+#define _UNICODE
+
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
+#define _WIN32_IE 0x0600
 #include <windows.h>
 #include <shlwapi.h>
+#include <wininet.h>
+
+//App
+#define APP_NAME      L"KillKeys"
+#define APP_VERSION   "0.4"
+#define APP_URL       L"http://killkeys.googlecode.com/"
+#define APP_UPDATEURL L"http://killkeys.googlecode.com/svn/wiki/latest-stable.txt"
+//#define DEBUG
 
 //Localization
-#define L10N_NAME    "KillKeys"
-#define L10N_VERSION "0.3"
 #ifndef L10N_FILE
 #define L10N_FILE "localization/en-US/strings.h"
 #endif
 #include L10N_FILE
-#if L10N_FILE_VERSION != 1
+#if L10N_VERSION != 1
 #error Localization not up to date!
 #endif
 
 //Messages
 #define WM_ICONTRAY            WM_USER+1
-#define WM_ADDTRAY             WM_USER+2 //This value has to remain constant through versions
 #define SWM_TOGGLE             WM_APP+1
 #define SWM_HIDE               WM_APP+2
 #define SWM_AUTOSTART_ON       WM_APP+3
 #define SWM_AUTOSTART_OFF      WM_APP+4
 #define SWM_AUTOSTART_HIDE_ON  WM_APP+5
 #define SWM_AUTOSTART_HIDE_OFF WM_APP+6
-#define SWM_ABOUT              WM_APP+7
-#define SWM_EXIT               WM_APP+8
+#define SWM_UPDATE             WM_APP+7
+#define SWM_ABOUT              WM_APP+8
+#define SWM_EXIT               WM_APP+9
+
+//Balloon stuff missing in MinGW
+#define NIIF_USER 4
+#define NIN_BALLOONSHOW        WM_USER+2
+#define NIN_BALLOONHIDE        WM_USER+3
+#define NIN_BALLOONTIMEOUT     WM_USER+4
+#define NIN_BALLOONUSERCLICK   WM_USER+5
 
 //Boring stuff
 LRESULT CALLBACK WindowProc(HWND, UINT, WPARAM, LPARAM);
 static HICON icon[2];
 static NOTIFYICONDATA traydata;
-static UINT WM_TASKBARCREATED=0;
+static unsigned int WM_TASKBARCREATED=0;
+static unsigned int WM_ADDTRAY=0;
 static int tray_added=0;
 static int hide=0;
-static char txt[100];
+static int update=0;
+struct {
+	int CheckForUpdate;
+} settings={0};
+static wchar_t txt[100];
 
 //Cool stuff
 static HINSTANCE hinstDLL=NULL;
@@ -53,7 +74,6 @@ static int *keys=NULL;
 static int numkeys=0;
 static int *keys_fullscreen=NULL;
 static int numkeys_fullscreen=0;
-static FILE *log;
 
 //Error message handling
 static int showerror=1;
@@ -61,56 +81,107 @@ static int showerror=1;
 LRESULT CALLBACK ErrorMsgProc(INT nCode, WPARAM wParam, LPARAM lParam) {
 	if (nCode == HCBT_ACTIVATE) {
 		//Edit the caption of the buttons
-		SetDlgItemText((HWND)wParam,IDYES,"Copy error");
-		SetDlgItemText((HWND)wParam,IDNO,"OK");
+		SetDlgItemText((HWND)wParam,IDYES,L"Copy error");
+		SetDlgItemText((HWND)wParam,IDNO,L"OK");
 	}
 	return 0;
 }
 
-void Error(char *func, char *info, int errorcode, int line) {
+void Error(wchar_t *func, wchar_t *info, int errorcode, int line) {
 	if (showerror) {
 		//Format message
-		char errormsg[100];
-		FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM,NULL,errorcode,0,errormsg,sizeof(errormsg),NULL);
-		errormsg[strlen(errormsg)-2]='\0'; //Remove that damn newline at the end of the formatted error message
-		sprintf(txt,"%s failed in file %s, line %d.\nError: %s (%d)\n\n%s", func, TEXT(__FILE__), line, errormsg, errorcode, info);
+		wchar_t errormsg[100];
+		FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM,NULL,errorcode,0,errormsg,sizeof(errormsg)/sizeof(wchar_t),NULL);
+		errormsg[wcslen(errormsg)-2]='\0'; //Remove that damn newline at the end of the formatted error message
+		swprintf(txt,L"%s failed in file %s, line %d.\nError: %s (%d)\n\n%s", func, TEXT(__FILE__), line, errormsg, errorcode, info);
 		//Display message
 		HHOOK hhk=SetWindowsHookEx(WH_CBT, &ErrorMsgProc, 0, GetCurrentThreadId());
-		int response=MessageBox(NULL, txt, L10N_NAME" Error", MB_ICONERROR|MB_YESNO|MB_DEFBUTTON2);
+		int response=MessageBox(NULL, txt, APP_NAME" Error", MB_ICONERROR|MB_YESNO|MB_DEFBUTTON2);
 		UnhookWindowsHookEx(hhk);
 		if (response == IDYES) {
 			//Copy message to clipboard
 			OpenClipboard(NULL);
 			EmptyClipboard();
-			char *data=LocalAlloc(LMEM_FIXED,strlen(txt)+1);
-			memcpy(data,txt,strlen(txt)+1);
-			SetClipboardData(CF_TEXT,data);
+			wchar_t *data=LocalAlloc(LMEM_FIXED,(wcslen(txt)+1)*sizeof(wchar_t));
+			memcpy(data,txt,(wcslen(txt)+1)*sizeof(wchar_t));
+			SetClipboardData(CF_UNICODETEXT,data);
 			CloseClipboard();
 		}
 	}
 }
 
+//Check for update
+DWORD WINAPI _CheckForUpdate() {
+	//Open connection
+	HINTERNET http, file;
+	if ((http=InternetOpen(APP_NAME" - "APP_VERSION,INTERNET_OPEN_TYPE_DIRECT,NULL,NULL,0)) == NULL) {
+		#ifdef DEBUG
+		Error(L"InternetOpen()",L"Could not establish connection.\nPlease check for update manually at "APP_URL,GetLastError(),__LINE__);
+		#endif
+		return;
+	}
+	if ((file=InternetOpenUrl(http,APP_UPDATEURL,NULL,0,INTERNET_FLAG_NO_AUTH|INTERNET_FLAG_NO_AUTO_REDIRECT|INTERNET_FLAG_NO_CACHE_WRITE|INTERNET_FLAG_NO_COOKIES|INTERNET_FLAG_NO_UI,0)) == NULL) {
+		#ifdef DEBUG
+		Error(L"InternetOpenUrl()",L"Could not establish connection.\nPlease check for update manually at "APP_URL,GetLastError(),__LINE__);
+		#endif
+		return;
+	}
+	//Read file
+	char data[20];
+	DWORD numread;
+	if (InternetReadFile(file,data,sizeof(data),&numread) == FALSE) {
+		#ifdef DEBUG
+		Error(L"InternetReadFile()",L"Could not read file.\nPlease check for update manually at "APP_URL,GetLastError(),__LINE__);
+		#endif
+		return;
+	}
+	data[numread]='\0';
+	//Get error code
+	wchar_t code[4];
+	DWORD len=sizeof(code);
+	HttpQueryInfo(file,HTTP_QUERY_STATUS_CODE,&code,&len,NULL);
+	//Close connection
+	InternetCloseHandle(file);
+	InternetCloseHandle(http);
+	
+	//Make sure the server returned 200
+	if (wcscmp(code,L"200")) {
+		#ifdef DEBUG
+		swprintf(txt,L"Server returned %s error when checking for update.\nPlease check for update manually at "APP_URL,code);
+		MessageBox(NULL, txt, APP_NAME, MB_ICONWARNING|MB_OK);
+		#endif
+		return;
+	}
+	
+	//New version available?
+	if (strcmp(data,APP_VERSION)) {
+		update=1;
+		traydata.uFlags|=NIF_INFO;
+		UpdateTray();
+		traydata.uFlags^=NIF_INFO;
+	}
+}
+
+void CheckForUpdate() {
+	CreateThread(NULL,0,_CheckForUpdate,NULL,0,NULL);
+}
+
 //Entry point
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR szCmdLine, int iCmdShow) {
 	//Look for previous instance
+	WM_ADDTRAY=RegisterWindowMessage(L"AddTray");
 	HWND previnst;
-	if ((previnst=FindWindow(L10N_NAME,NULL)) != NULL) {
+	if ((previnst=FindWindow(APP_NAME,NULL)) != NULL) {
 		SendMessage(previnst,WM_ADDTRAY,0,0);
+		PostMessage(previnst,WM_USER+2,0,0); //Compatibility with old versions (this will be removed in the future)
 		return 0;
 	}
-
-	//Change working directory
-	char path[MAX_PATH];
-	if (GetModuleFileName(NULL, path, sizeof(path))) {
-		PathRemoveFileSpec(path);
-		SetCurrentDirectory(path);
-	}
-
+	
 	//Check command line
 	if (!strcmp(szCmdLine,"-hide")) {
 		hide=1;
 	}
-
+	
 	//Create window class
 	WNDCLASSEX wnd;
 	wnd.cbSize=sizeof(WNDCLASSEX);
@@ -124,26 +195,21 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR szCmdLine, in
 	wnd.hCursor=LoadImage(NULL, IDC_ARROW, IMAGE_CURSOR, 0, 0, LR_DEFAULTCOLOR|LR_SHARED);
 	wnd.hbrBackground=(HBRUSH)(COLOR_WINDOW+1);
 	wnd.lpszMenuName=NULL;
-	wnd.lpszClassName=L10N_NAME;
+	wnd.lpszClassName=APP_NAME;
 	
 	//Register class
 	RegisterClassEx(&wnd);
 	
 	//Create window
-	HWND hwnd=CreateWindowEx(0,wnd.lpszClassName, L10N_NAME, WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, NULL, NULL, hInst, NULL);
+	HWND hwnd=CreateWindowEx(0, wnd.lpszClassName, APP_NAME, WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, NULL, NULL, hInst, NULL);
 	
-	//Register TaskbarCreated so we can re-add the tray icon if explorer.exe crashes
-	if ((WM_TASKBARCREATED=RegisterWindowMessage("TaskbarCreated")) == 0) {
-		Error("RegisterWindowMessage('TaskbarCreated')","This means the tray icon won't be added if (or should I say when) explorer.exe crashes.",GetLastError(),__LINE__);
-	}
-	
-	//Load tray icons
-	if ((icon[0] = LoadImage(hInst, "tray-disabled", IMAGE_ICON, 0, 0, LR_DEFAULTCOLOR)) == NULL) {
-		Error("LoadImage('tray-disabled')","Fatal error.",GetLastError(),__LINE__);
+	//Load icons
+	if ((icon[0] = LoadImage(hInst, L"tray-disabled", IMAGE_ICON, 0, 0, LR_DEFAULTCOLOR)) == NULL) {
+		Error(L"LoadImage('tray-disabled')",L"Fatal error.",GetLastError(),__LINE__);
 		PostQuitMessage(1);
 	}
-	if ((icon[1] = LoadImage(hInst, "tray-enabled", IMAGE_ICON, 0, 0, LR_DEFAULTCOLOR)) == NULL) {
-		Error("LoadImage('tray-enabled')","Fatal error.",GetLastError(),__LINE__);
+	if ((icon[1] = LoadImage(hInst, L"tray-enabled", IMAGE_ICON, 0, 0, LR_DEFAULTCOLOR)) == NULL) {
+		Error(L"LoadImage('tray-enabled')",L"Fatal error.",GetLastError(),__LINE__);
 		PostQuitMessage(1);
 	}
 	
@@ -153,6 +219,14 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR szCmdLine, in
 	traydata.uFlags=NIF_MESSAGE|NIF_ICON|NIF_TIP;
 	traydata.hWnd=hwnd;
 	traydata.uCallbackMessage=WM_ICONTRAY;
+	//Balloon tooltip
+	traydata.uTimeout=10000;
+	wcsncpy(traydata.szInfoTitle,APP_NAME,sizeof(traydata.szInfoTitle)/sizeof(wchar_t));
+	wcsncpy(traydata.szInfo,L10N_UPDATE_BALLOON,sizeof(traydata.szInfo)/sizeof(wchar_t));
+	traydata.dwInfoFlags=NIIF_USER;
+	
+	//Register TaskbarCreated so we can re-add the tray icon if explorer.exe crashes
+	WM_TASKBARCREATED=RegisterWindowMessage(L"TaskbarCreated");
 	
 	//Update tray icon
 	UpdateTray();
@@ -160,10 +234,22 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR szCmdLine, in
 	//Hook keyboard
 	HookKeyboard();
 	
-	//Add tray if hook failed, even though -hide was supplied
+	//Add tray if hooking failed, even though -hide was supplied
 	if (hide && !keyhook) {
 		hide=0;
 		UpdateTray();
+	}
+	
+	//Load settings
+	wchar_t path[MAX_PATH];
+	GetModuleFileName(NULL, path, sizeof(path));
+	PathRenameExtension(path,L".ini");
+	GetPrivateProfileString(L"Update",L"CheckForUpdate",L"0",txt,sizeof(txt)/sizeof(wchar_t),path);
+	swscanf(txt,L"%d",&settings.CheckForUpdate);
+	
+	//Check for update
+	if (settings.CheckForUpdate) {
+		CheckForUpdate();
 	}
 	
 	//Message loop
@@ -190,25 +276,25 @@ void ShowContextMenu(HWND hwnd) {
 	int autostart_enabled=0, autostart_hide=0;
 	//Open key
 	HKEY key;
-	RegOpenKeyEx(HKEY_CURRENT_USER,"Software\\Microsoft\\Windows\\CurrentVersion\\Run",0,KEY_QUERY_VALUE,&key);
+	RegOpenKeyEx(HKEY_CURRENT_USER,L"Software\\Microsoft\\Windows\\CurrentVersion\\Run",0,KEY_QUERY_VALUE,&key);
 	//Read value
-	char autostart_value[MAX_PATH+10];
+	wchar_t autostart_value[MAX_PATH+10];
 	DWORD len=sizeof(autostart_value);
-	DWORD res=RegQueryValueEx(key,L10N_NAME,NULL,NULL,(LPBYTE)autostart_value,&len);
+	DWORD res=RegQueryValueEx(key,APP_NAME,NULL,NULL,(LPBYTE)autostart_value,&len);
 	//Close key
 	RegCloseKey(key);
 	//Get path
-	char path[MAX_PATH];
+	wchar_t path[MAX_PATH];
 	GetModuleFileName(NULL,path,MAX_PATH);
 	//Compare
-	char pathcmp[MAX_PATH+10];
-	sprintf(pathcmp,"\"%s\"",path);
-	if (!strcmp(pathcmp,autostart_value)) {
+	wchar_t pathcmp[MAX_PATH+10];
+	swprintf(pathcmp,L"\"%s\"",path);
+	if (!wcscmp(pathcmp,autostart_value)) {
 		autostart_enabled=1;
 	}
 	else {
-		sprintf(pathcmp,"\"%s\" -hide",path);
-		if (!strcmp(pathcmp,autostart_value)) {
+		swprintf(pathcmp,L"\"%s\" -hide",path);
+		if (!wcscmp(pathcmp,autostart_value)) {
 			autostart_enabled=1;
 			autostart_hide=1;
 		}
@@ -219,6 +305,12 @@ void ShowContextMenu(HWND hwnd) {
 	InsertMenu(hAutostartMenu, -1, MF_BYPOSITION|(autostart_hide?MF_CHECKED:0), (autostart_hide?SWM_AUTOSTART_HIDE_OFF:SWM_AUTOSTART_HIDE_ON), L10N_MENU_HIDE);
 	InsertMenu(hMenu, -1, MF_BYPOSITION|MF_POPUP, (UINT)hAutostartMenu, L10N_MENU_AUTOSTART);
 	InsertMenu(hMenu, -1, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
+	
+	//Update
+	if (update) {
+		InsertMenu(hMenu, -1, MF_BYPOSITION, SWM_UPDATE, L10N_MENU_UPDATE);
+		InsertMenu(hMenu, -1, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
+	}
 	
 	//About
 	InsertMenu(hMenu, -1, MF_BYPOSITION, SWM_ABOUT, L10N_MENU_ABOUT);
@@ -233,13 +325,13 @@ void ShowContextMenu(HWND hwnd) {
 }
 
 int UpdateTray() {
-	strncpy(traydata.szTip,(keyhook?L10N_TRAY_ENABLED:L10N_TRAY_DISABLED),sizeof(traydata.szTip));
+	wcsncpy(traydata.szTip,(keyhook?L10N_TRAY_ENABLED:L10N_TRAY_DISABLED),sizeof(traydata.szTip)/sizeof(wchar_t));
 	traydata.hIcon=icon[keyhook?1:0];
 	
-	//Only add or modify if not hidden
-	if (!hide) {
+	//Only add or modify if not hidden or if balloon will be displayed
+	if (!hide || traydata.uFlags&NIF_INFO) {
 		if (Shell_NotifyIcon((tray_added?NIM_MODIFY:NIM_ADD),&traydata) == FALSE) {
-			Error("Shell_NotifyIcon(NIM_ADD/NIM_MODIFY)","Failed to add tray icon.",GetLastError(),__LINE__);
+			Error(L"Shell_NotifyIcon(NIM_ADD/NIM_MODIFY)",L"Failed to add tray icon.",GetLastError(),__LINE__);
 			return 1;
 		}
 		
@@ -255,7 +347,7 @@ int RemoveTray() {
 	}
 	
 	if (Shell_NotifyIcon(NIM_DELETE,&traydata) == FALSE) {
-		Error("Shell_NotifyIcon(NIM_DELETE)","Failed to remove tray icon.",GetLastError(),__LINE__);
+		Error(L"Shell_NotifyIcon(NIM_DELETE)",L"Failed to remove tray icon.",GetLastError(),__LINE__);
 		return 1;
 	}
 	
@@ -267,29 +359,29 @@ void SetAutostart(int on, int hide) {
 	//Open key
 	HKEY key;
 	int error;
-	if ((error=RegOpenKeyEx(HKEY_CURRENT_USER,"Software\\Microsoft\\Windows\\CurrentVersion\\Run",0,KEY_SET_VALUE,&key)) != ERROR_SUCCESS) {
-		Error("RegOpenKeyEx(HKEY_CURRENT_USER,'Software\\Microsoft\\Windows\\CurrentVersion\\Run')","Error opening the registry.",error,__LINE__);
+	if ((error=RegOpenKeyEx(HKEY_CURRENT_USER,L"Software\\Microsoft\\Windows\\CurrentVersion\\Run",0,KEY_SET_VALUE,&key)) != ERROR_SUCCESS) {
+		Error(L"RegOpenKeyEx(HKEY_CURRENT_USER,'Software\\Microsoft\\Windows\\CurrentVersion\\Run')",L"Error opening the registry.",error,__LINE__);
 		return;
 	}
 	if (on) {
 		//Get path
-		char path[MAX_PATH];
+		wchar_t path[MAX_PATH];
 		if (GetModuleFileName(NULL,path,MAX_PATH) == 0) {
-			Error("GetModuleFileName(NULL)","",GetLastError(),__LINE__);
+			Error(L"GetModuleFileName(NULL)",L"",GetLastError(),__LINE__);
 			return;
 		}
 		//Add
-		char value[MAX_PATH+10];
-		sprintf(value,(hide?"\"%s\" -hide":"\"%s\""),path);
-		if ((error=RegSetValueEx(key,L10N_NAME,0,REG_SZ,(LPBYTE)value,strlen(value)+1)) != ERROR_SUCCESS) {
-			Error("RegSetValueEx('"L10N_NAME"')","",error,__LINE__);
+		wchar_t value[MAX_PATH+10];
+		swprintf(value,(hide?L"\"%s\" -hide":L"\"%s\""),path);
+		if ((error=RegSetValueEx(key,APP_NAME,0,REG_SZ,(LPBYTE)value,(wcslen(value)+1)*sizeof(wchar_t))) != ERROR_SUCCESS) {
+			Error(L"RegSetValueEx('"APP_NAME"')",L"",error,__LINE__);
 			return;
 		}
 	}
 	else {
 		//Remove
-		if ((error=RegDeleteValue(key,L10N_NAME)) != ERROR_SUCCESS) {
-			Error("RegDeleteValue('"L10N_NAME"')","",error,__LINE__);
+		if ((error=RegDeleteValue(key,APP_NAME)) != ERROR_SUCCESS) {
+			Error(L"RegDeleteValue('"APP_NAME"')",L"",error,__LINE__);
 			return;
 		}
 	}
@@ -298,15 +390,6 @@ void SetAutostart(int on, int hide) {
 }
 
 //Hook
-char* GetTimestamp(char *buf, size_t maxsize, char *format) {
-	time_t rawtime;
-	struct tm *timeinfo;
-	time(&rawtime);
-	timeinfo=localtime(&rawtime);
-	strftime(buf,maxsize,format,timeinfo);
-	return buf;
-}
-
 _declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
 	if (nCode == HC_ACTION && (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN)) {
 		int vkey=((PKBDLLHOOKSTRUCT)lParam)->vkCode;
@@ -319,15 +402,17 @@ _declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wPa
 		//Get window and desktop size
 		RECT wnd;
 		if (GetWindowRect(hwnd,&wnd) == 0) {
-			fprintf(log,"Error: GetWindowRect() failed (error code: %d) in file %s, line %d.\n",GetLastError(),__FILE__,__LINE__);
-			fflush(log);
-			return 0;
+			#ifdef DEBUG
+			Error(L"GetWindowRect(hwnd)",L"LowLevelKeyboardProc()",GetLastError(),__LINE__);
+			#endif
+			return CallNextHookEx(NULL, nCode, wParam, lParam); 
 		}
 		RECT desk;
 		if (GetWindowRect(GetDesktopWindow(),&desk) == 0) {
-			fprintf(log,"Error: GetWindowRect() failed (error code: %d) in file %s, line %d.\n",GetLastError(),__FILE__,__LINE__);
-			fflush(log);
-			return 0;
+			#ifdef DEBUG
+			Error(L"GetWindowRect(GetDesktopWindow())",L"LowLevelKeyboardProc()",GetLastError(),__LINE__);
+			#endif
+			return CallNextHookEx(NULL, nCode, wParam, lParam); 
 		}
 		
 		//Are we in a fullscreen window?
@@ -335,8 +420,8 @@ _declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wPa
 			fullscreen=1;
 		}
 		//The desktop (explorer.exe) doesn't count as a fullscreen window.
-		//HWND desktop = FindWindow("WorkerW", NULL); //This is the window that's focused after pressing [the windows button]+D
-		HWND desktop = FindWindow("Progman", "Program Manager");
+		//HWND desktop = FindWindow(L"WorkerW", NULL); //This is the window that's focused after pressing [the windows button]+D
+		HWND desktop = FindWindow(L"Progman", L"Program Manager");
 		if (fullscreen && desktop != NULL) {
 			DWORD desktop_pid, hwnd_pid;
 			GetWindowThreadProcessId(desktop,&desktop_pid);
@@ -364,12 +449,8 @@ _declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wPa
 			}
 		}
 		
-		//Block the key
+		//Stop this key
 		if (stop) {
-			fprintf(log,"%s Blocking key %02X%s.\n",GetTimestamp(txt,sizeof(txt),"[%Y-%m-%d %H:%M:%S]"),vkey,(fullscreen?" in fullscreen window":""));
-			fflush(log);
-			
-			//Stop this key
 			return 1;
 		}
 	}
@@ -386,7 +467,7 @@ int HookKeyboard() {
 	//Read config.txt to buffer
 	FILE *config;
 	if ((config=fopen("config.txt","rb")) == NULL) {
-		Error("fopen('config.txt')","This probably means that config.txt is missing. You can try downloading "L10N_NAME" again.",GetLastError(),__LINE__);
+		Error(L"fopen('config.txt')",L"This probably means that config.txt is missing. You can try downloading "APP_NAME" again.",GetLastError(),__LINE__);
 		return 1;
 	}
 	fseek(config,0,SEEK_END);
@@ -435,7 +516,7 @@ int HookKeyboard() {
 				if (*add_numkeys == keys_alloc) {
 					keys_alloc+=100;
 					if ((*add_keys=realloc(*add_keys,keys_alloc*sizeof(int))) == NULL) {
-						Error("realloc(*add_keys)","Out of memory?",GetLastError(),__LINE__);
+						Error(L"realloc(*add_keys)",L"Out of memory?",GetLastError(),__LINE__);
 						break;
 					}
 				}
@@ -449,33 +530,28 @@ int HookKeyboard() {
 	//Free buffer
 	free(buffer);
 	
-	//Open log
-	log=fopen("killkeys-log.txt","ab");
-	
 	//Load library
-	char path[MAX_PATH]=L10N_NAME;
+	wchar_t path[MAX_PATH]=APP_NAME;
 	GetModuleFileName(NULL, path, sizeof(path));
 	if ((hinstDLL=LoadLibrary(path)) == NULL) {
-		Error("LoadLibrary()","Check the "L10N_NAME" website if there is an update, if the latest version doesn't fix this, please report it.",GetLastError(),__LINE__);
+		Error(L"LoadLibrary()",L"Check the "APP_NAME" website if there is an update, if the latest version doesn't fix this, please report it.",GetLastError(),__LINE__);
 		return 1;
 	}
 	
 	//Get address to keyboard hook (beware name mangling)
 	HOOKPROC procaddr;
 	if ((procaddr=(HOOKPROC)GetProcAddress(hinstDLL,"LowLevelKeyboardProc@12")) == NULL) {
-		Error("GetProcAddress('LowLevelKeyboardProc@12')","Check the "L10N_NAME" website if there is an update, if the latest version doesn't fix this, please report it.",GetLastError(),__LINE__);
+		Error(L"GetProcAddress('LowLevelKeyboardProc@12')",L"Check the "APP_NAME" website if there is an update, if the latest version doesn't fix this, please report it.",GetLastError(),__LINE__);
 		return 1;
 	}
 	
 	//Set up the hook
 	if ((keyhook=SetWindowsHookEx(WH_KEYBOARD_LL,procaddr,hinstDLL,0)) == NULL) {
-		Error("SetWindowsHookEx(WH_KEYBOARD_LL)","Check the "L10N_NAME" website if there is an update, if the latest version doesn't fix this, please report it.",GetLastError(),__LINE__);
+		Error(L"SetWindowsHookEx(WH_KEYBOARD_LL)",L"Check the "APP_NAME" website if there is an update, if the latest version doesn't fix this, please report it.",GetLastError(),__LINE__);
 		return 1;
 	}
 	
 	//Success
-	fprintf(log,"\n%s New session.\n",GetTimestamp(txt,sizeof(txt),"[%Y-%m-%d %H:%M:%S]"));
-	fflush(log);
 	UpdateTray();
 	return 0;
 }
@@ -496,18 +572,17 @@ int UnhookKeyboard() {
 	
 	//Remove keyboard hook
 	if (UnhookWindowsHookEx(keyhook) == 0) {
-		Error("UnhookWindowsHookEx(keyhook)","Check the "L10N_NAME" website if there is an update, if the latest version doesn't fix this, please report it.",GetLastError(),__LINE__);
+		Error(L"UnhookWindowsHookEx(keyhook)",L"Check the "APP_NAME" website if there is an update, if the latest version doesn't fix this, please report it.",GetLastError(),__LINE__);
 		return 1;
 	}
 	
 	//Unload library
 	if (FreeLibrary(hinstDLL) == 0) {
-		Error("FreeLibrary()","Check the "L10N_NAME" website if there is an update, if the latest version doesn't fix this, please report it.",GetLastError(),__LINE__);
+		Error(L"FreeLibrary()",L"Check the "APP_NAME" website if there is an update, if the latest version doesn't fix this, please report it.",GetLastError(),__LINE__);
 		return 1;
 	}
 	
 	//Success
-	fclose(log); //Close log
 	keyhook=NULL;
 	UpdateTray();
 	return 0;
@@ -529,6 +604,15 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 		}
 		else if (lParam == WM_RBUTTONDOWN) {
 			ShowContextMenu(hwnd);
+		}
+		else if (lParam == NIN_BALLOONTIMEOUT) {
+			if (hide) {
+				RemoveTray();
+			}
+		}
+		else if (lParam == NIN_BALLOONUSERCLICK) {
+			hide=0;
+			SendMessage(hwnd,WM_COMMAND,SWM_UPDATE,0);
 		}
 	}
 	else if (msg == WM_ADDTRAY) {
@@ -560,23 +644,28 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 		else if (wmId == SWM_AUTOSTART_HIDE_OFF) {
 			SetAutostart(1,0);
 		}
+		else if (wmId == SWM_UPDATE) {
+			if (MessageBox(NULL, L10N_UPDATE_DIALOG, APP_NAME, MB_ICONINFORMATION|MB_YESNO) == IDYES) {
+				ShellExecute(NULL, L"open", APP_URL, NULL, NULL, SW_SHOWNORMAL);
+			}
+		}
 		else if (wmId == SWM_ABOUT) {
 			if (keyhook) {
-				strcpy(txt, L10N_ABOUT_KEYS1);
+				wcscpy(txt, L10N_ABOUT_KEYS1);
 				int i;
 				for (i=0; i < numkeys; i++) {
-					sprintf(txt, "%s %02X", txt, keys[i]);
+					swprintf(txt, L"%s %02X", txt, keys[i]);
 				}
-				strcat(txt, "\n"L10N_ABOUT_KEYS2);
+				wcscat(txt, "\n"L10N_ABOUT_KEYS2);
 				for (i=0; i < numkeys_fullscreen; i++) {
-					sprintf(txt, "%s %02X", txt, keys_fullscreen[i]);
+					swprintf(txt, L"%s %02X", txt, keys_fullscreen[i]);
 				}
 			}
 			else {
-				strcpy(txt, L10N_ABOUT_KEYS3);
+				wcscpy(txt, L10N_ABOUT_KEYS3);
 			}
-			char buffer[1000];
-			sprintf(buffer, L10N_ABOUT, txt);
+			wchar_t buffer[1000];
+			swprintf(buffer, L10N_ABOUT, txt);
 			MessageBox(NULL, buffer, L10N_ABOUT_TITLE, MB_ICONINFORMATION|MB_OK);
 		}
 		else if (wmId == SWM_EXIT) {
