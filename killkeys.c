@@ -57,15 +57,15 @@
 LRESULT CALLBACK WindowProc(HWND, UINT, WPARAM, LPARAM);
 static HICON icon[2];
 static NOTIFYICONDATA traydata;
-static unsigned int WM_TASKBARCREATED=0;
-static unsigned int WM_ADDTRAY=0;
+static UINT WM_TASKBARCREATED=0;
+static UINT WM_ADDTRAY=0;
 static int tray_added=0;
 static int hide=0;
 static int update=0;
 struct {
 	int CheckForUpdate;
 } settings={0};
-static wchar_t txt[100];
+static wchar_t txt[1000];
 
 //Cool stuff
 static HINSTANCE hinstDLL=NULL;
@@ -242,7 +242,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR szCmdLine, in
 	
 	//Load settings
 	wchar_t path[MAX_PATH];
-	GetModuleFileName(NULL, path, sizeof(path));
+	GetModuleFileName(NULL,path,sizeof(path)/sizeof(wchar_t));
 	PathRenameExtension(path,L".ini");
 	GetPrivateProfileString(L"Update",L"CheckForUpdate",L"0",txt,sizeof(txt)/sizeof(wchar_t),path);
 	swscanf(txt,L"%d",&settings.CheckForUpdate);
@@ -464,75 +464,51 @@ int HookKeyboard() {
 		return 1;
 	}
 	
-	//Read config.txt to buffer
-	FILE *config;
-	if ((config=fopen("config.txt","rb")) == NULL) {
-		Error(L"fopen('config.txt')",L"This probably means that config.txt is missing. You can try downloading "APP_NAME" again.",GetLastError(),__LINE__);
-		return 1;
-	}
-	fseek(config,0,SEEK_END);
-	int length=ftell(config);
-	fseek(config,0,SEEK_SET);
-	char *buffer=malloc(length+1);
-	fread(buffer,1,length,config);
-	fclose(config);
-	buffer[length]='\0';
-	
-	//Parse buffer
-	numkeys=0;
-	numkeys_fullscreen=0;
+	//Load settings
+	wchar_t path[MAX_PATH];
+	GetModuleFileName(NULL,path,sizeof(path)/sizeof(wchar_t));
+	PathRenameExtension(path,L".ini");
 	int keys_alloc=0;
-	//Loop buffer
-	int **add_keys=&keys; //We need a pointer to a pointer to be able to realloc without having to know if add_keys points to keys or keys_fullscreen
-	int *add_numkeys=&numkeys;
-	int pos=0;
-	while (buffer[pos] != '\0') {
-		if (buffer[pos] == '\r') {
-			//Ignore \r
-			pos++;
-		}
-		else if (buffer[pos] == '\n') {
-			//Switch to keys_fullscreen or stop parsing
-			if (*add_keys == keys) {
-				add_keys=&keys_fullscreen;
-				add_numkeys=&numkeys_fullscreen;
-				keys_alloc=0;
-			}
-			else {
+	int temp;
+	int numread;
+	//Keys
+	GetPrivateProfileString(L"KillKeys",L"Keys",L"",txt,sizeof(txt)/sizeof(wchar_t),path);
+	wchar_t *pos=txt;
+	numkeys=0;
+	while (*pos != '\0' && swscanf(pos,L"%02X%n",&temp,&numread) != EOF) {
+		//Make sure we have enough space
+		if (numkeys == keys_alloc) {
+			keys_alloc+=100;
+			if ((keys=realloc(keys,keys_alloc*sizeof(int))) == NULL) {
+				Error(L"realloc(keys)",L"Out of memory?",GetLastError(),__LINE__);
 				break;
 			}
-			pos++;
 		}
-		else if (buffer[pos] == ' ') {
-			//Ignore space
-			pos++;
-		}
-		else {
-			//Parse key
-			int temp;
-			int numbytesread;
-			if (sscanf(buffer+pos,"%02X%n",&temp,&numbytesread) != EOF) {
-				//Make sure we have enough space
-				if (*add_numkeys == keys_alloc) {
-					keys_alloc+=100;
-					if ((*add_keys=realloc(*add_keys,keys_alloc*sizeof(int))) == NULL) {
-						Error(L"realloc(*add_keys)",L"Out of memory?",GetLastError(),__LINE__);
-						break;
-					}
-				}
-				//Store key
-				(*add_keys)[(*add_numkeys)++]=temp;
-				pos+=numbytesread;
+		//Store key
+		keys[numkeys++]=temp;
+		pos+=numread;
+	}
+	//Keys_Fullscreen
+	GetPrivateProfileString(L"KillKeys",L"Keys_Fullscreen",L"",txt,sizeof(txt)/sizeof(wchar_t),path);
+	pos=txt;
+	numkeys_fullscreen=0;
+	keys_alloc=0;
+	while (*pos != '\0' && swscanf(pos,L"%02X%n",&temp,&numread) != EOF) {
+		//Make sure we have enough space
+		if (numkeys == keys_alloc) {
+			keys_alloc+=100;
+			if ((keys_fullscreen=realloc(keys_fullscreen,keys_alloc*sizeof(int))) == NULL) {
+				Error(L"realloc(keys_fullscreen)",L"Out of memory?",GetLastError(),__LINE__);
+				break;
 			}
 		}
+		//Store key
+		keys_fullscreen[numkeys_fullscreen++]=temp;
+		pos+=numread;
 	}
 	
-	//Free buffer
-	free(buffer);
-	
 	//Load library
-	wchar_t path[MAX_PATH]=APP_NAME;
-	GetModuleFileName(NULL, path, sizeof(path));
+	GetModuleFileName(NULL,path,sizeof(path)/sizeof(wchar_t));
 	if ((hinstDLL=LoadLibrary(path)) == NULL) {
 		Error(L"LoadLibrary()",L"Check the "APP_NAME" website if there is an update, if the latest version doesn't fix this, please report it.",GetLastError(),__LINE__);
 		return 1;

@@ -19,7 +19,6 @@ if "%1" == "all" (
 		)
 		copy "localization\%%f\info.txt" "build/%%f/KillKeys"
 		copy "KillKeys.ini" "build/%%f/KillKeys"
-		copy "config.txt" "build/%%f/KillKeys"
 		
 		gcc -o "build/%%f/KillKeys/KillKeys.exe" killkeys.c build/resources.o -mwindows -lshlwapi -lwininet -DL10N_FILE=\"localization/%%f/strings.h\"
 		if exist "build/%%f/KillKeys/KillKeys.exe" (

@@ -13,12 +13,16 @@ You can use -hide as a parameter to hide the tray icon.
 Visit the website at http://killkeys.googlecode.com/
 Send feedback to recover89@gmail.com
 
+If you feel this program is useful, please consider donating money.
+You can find out how to donate on the website.
+
 Changelog
 ---------
 trunk:
 Merged keyhook.dll into KillKeys.exe.
 Removed log file.
 Added update checking.
+Moved settings to KillKeys.ini.
 
 0.3 - 2008-11-14:
 Added option to disable keys in fullscreen.

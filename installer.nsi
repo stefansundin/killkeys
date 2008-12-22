@@ -86,7 +86,7 @@ Section "${APP_NAME} (${APP_VERSION})"
 		MessageBox MB_ICONINFORMATION|MB_YESNO "$(L10N_RUNNING_INSTALL)" IDNO continue
 			DetailPrint "$(L10N_CLOSING)"
 			SendMessage $0 ${WM_CLOSE} 0 0
-			Sleep 200
+			Sleep 1000
 	continue:
 
 	SetOutPath "$INSTDIR"
@@ -139,12 +139,11 @@ Section "Uninstall"
 		MessageBox MB_ICONINFORMATION|MB_YESNO "$(L10N_RUNNING_UNINSTALL)" IDNO continue
 			DetailPrint "$(L10N_CLOSING)"
 			SendMessage $0 ${WM_CLOSE} 0 0
-			Sleep 200
+			Sleep 1000
 	continue:
 
 	Delete /REBOOTOK "$INSTDIR\${APP_NAME}.exe"
 	Delete /REBOOTOK "$INSTDIR\${APP_NAME}.ini"
-	Delete /REBOOTOK "$INSTDIR\config.txt"
 	Delete /REBOOTOK "$INSTDIR\info.txt"
 	Delete /REBOOTOK "$INSTDIR\Uninstall.exe"
 	RMDir /REBOOTOK "$INSTDIR"
