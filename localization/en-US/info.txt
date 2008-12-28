@@ -1,9 +1,8 @@
 KillKeys
 Made by Stefan Sundin
 
-When enabled, keys specified in config.txt will be disabled.
+When enabled, keys specified in KillKeys.ini will be disabled.
 By default, both windows keys and the menu key are disabled when in fullscreen.
-Read config.txt for more info.
 
 KillKeys will automatically check for updates.
 You can disable this in KillKeys.ini.

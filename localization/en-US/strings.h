@@ -33,10 +33,9 @@
 #define L10N_ABOUT             APP_NAME " - " APP_VERSION "\n\
 Made by Stefan Sundin\n\
 \n\
-When enabled, keys specified in config.txt will be disabled.\n\
+When enabled, keys specified in KillKeys.ini file will be disabled.\n\
 By default, both windows keys and the menu key are disabled.\n\
 %s\n\
-\nRead config.txt for instructions on how to edit the disabled keys.\n\
 \n\
 Visit the website at "APP_URL"\n\
 Send feedback to recover89@gmail.com"
