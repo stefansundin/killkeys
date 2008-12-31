@@ -1,0 +1,37 @@
+KillKeys
+Por Stefan Sundin
+Traducido por Fabrizio Ferri (algernon@gmail.com)
+
+Una vez activado, las teclas especificadas en el fichero KillKeys.ini serán desactivadas.
+Por defecto, la teclá Windows y la tecla Menú están desactivadas en pantalla completa.
+
+KillKeys buscará actualizaciones automáticamente.
+Puedes desactivar esto en el fichero KillKeys.ini.
+
+Puedes usar el parámetro -hide para ocultar el icono del área de notificación.
+
+Visita la página web en http://altdrag.googlecode.com/
+Envía comentarios a recover89@gmail.com
+
+Si opinas que este programa es útil, por favor, toma en consideración realizar un donativo. 
+Encontrarás las instrucciones en la página web.
+
+Historial de cambios
+--------------------
+Truncado:
+Fundido keyhook.dll en KillKeys.exe.
+Eliminado el fichero log.
+Añadida la comprobación de actualizaciones.
+Movida la configuración a KillKeys.ini.
+
+0.3 - 2008-11-14:
+Añadida una opción para desactivar teclas en modo de pantalla completa.
+Eliminado el límite de 100 teclas.
+Renombrado log-keyhook.txt a killkeys-log.txt
+
+0.2 - 2008-06-07:
+Rebautizado a KillKeys.
+Lee las teclas desde config.txt.
+
+0.1 - 2008-04-19:
+Primera versión.
