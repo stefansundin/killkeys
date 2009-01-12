@@ -17,7 +17,7 @@ You can find out how to donate on the website.
 
 Changelog
 ---------
-trunk:
+1.0 - 2009-01-12:
 Merged keyhook.dll into KillKeys.exe.
 Removed log file.
 Added update checking.

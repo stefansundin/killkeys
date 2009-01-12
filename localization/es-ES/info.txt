@@ -18,7 +18,7 @@ Encontrarás las instrucciones en la página web.
 
 Historial de cambios
 --------------------
-Truncado:
+1.0 - 2009-01-12:
 Fundido keyhook.dll en KillKeys.exe.
 Eliminado el fichero log.
 Añadida la comprobación de actualizaciones.

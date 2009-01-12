@@ -20,7 +20,7 @@
 
 //App
 #define APP_NAME      L"KillKeys"
-#define APP_VERSION   "0.4"
+#define APP_VERSION   "1.0"
 #define APP_URL       L"http://killkeys.googlecode.com/"
 #define APP_UPDATEURL L"http://killkeys.googlecode.com/svn/wiki/latest-stable.txt"
 
@@ -319,7 +319,7 @@ void ShowContextMenu(HWND hwnd) {
 
 	//Track menu
 	SetForegroundWindow(hwnd);
-	TrackPopupMenu(hMenu, TPM_BOTTOMALIGN, pt.x, pt.y, 0, hwnd, NULL );
+	TrackPopupMenu(hMenu, TPM_BOTTOMALIGN, pt.x, pt.y, 0, hwnd, NULL);
 	DestroyMenu(hMenu);
 }
 

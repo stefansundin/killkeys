@@ -10,7 +10,7 @@
 
 
 !define APP_NAME      "KillKeys"
-!define APP_VERSION   "0.4"
+!define APP_VERSION   "1.0"
 !define APP_URL       "http://killkeys.googlecode.com/"
 !define APP_UPDATEURL "http://killkeys.googlecode.com/svn/wiki/latest-stable.txt"
 !define L10N_VERSION  1
