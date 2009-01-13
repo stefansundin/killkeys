@@ -4,11 +4,25 @@
 	<title>KillKeys</title>
 	<link href="http://killkeys.googlecode.com/svn/wiki/feed.xml" rel="self" />
 	<link href="http://code.google.com/p/killkeys/" />
-	<updated>2008-11-15T02:52:00Z</updated>
+	<updated>2009-01-12T23:00:00Z</updated>
 	<author>
 		<name>Stefan Sundin</name>
 		<email>recover89@gmail.com</email>
 	</author>
+
+	<entry>
+		<id>urn:uuid:a6937967-16e7-4df3-b9ca-746b080da6f5</id>
+		<title>KillKeys - 1.0</title>
+		<link href="http://code.google.com/p/killkeys/" />
+		<updated>2009-01-12T23:00:00Z</updated>
+		<content type="html">
+Released 1.0.&lt;br/>
+Bumping the version to 1.0 since I think KillKeys now accomplishes what I set out for it to do. KillKeys is now available in Spanish thanks to Fabrizio Ferri.&lt;br/>
+I have also opened &lt;a href="http://groups.google.com/group/recovers-tools"> a forum&lt;/a> which I hope you'll use to discuss KillKeys and my other tools, let me know what's good and what's bad.&lt;br/>
+I have also gotten some reports that my tools show up on some antivirus scanners, these are all false positives! I will try to report it to the antivirus vendors.&lt;br/>
+Finally, I would like to let you know that I have put donating details on the site, so if you feel this program is useful, please consider &lt;a href="http://code.google.com/p/killkeys/wiki/Donate">donating money&lt;/a>.
+		</content>
+	</entry>
 
 	<entry>
 		<id>urn:uuid:3f7e1873-cf11-4e49-ac97-a3234a8bd7dd</id>
