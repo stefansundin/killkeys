@@ -397,40 +397,42 @@ _declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wPa
 	if (nCode == HC_ACTION && (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN)) {
 		int vkey=((PKBDLLHOOKSTRUCT)lParam)->vkCode;
 		
-		HWND hwnd=GetForegroundWindow();
 		int stop=0;
 		int fullscreen=0;
 		int i;
 		
-		//Get window and desktop size
-		RECT wnd;
-		if (GetWindowRect(hwnd,&wnd) == 0) {
-			#ifdef DEBUG
-			Error(L"GetWindowRect(hwnd)",L"LowLevelKeyboardProc()",GetLastError(),__LINE__);
-			#endif
-			return CallNextHookEx(NULL, nCode, wParam, lParam); 
-		}
-		RECT desk;
-		if (GetWindowRect(GetDesktopWindow(),&desk) == 0) {
-			#ifdef DEBUG
-			Error(L"GetWindowRect(GetDesktopWindow())",L"LowLevelKeyboardProc()",GetLastError(),__LINE__);
-			#endif
-			return CallNextHookEx(NULL, nCode, wParam, lParam); 
-		}
-		
-		//Are we in a fullscreen window?
-		if (wnd.left == desk.left && wnd.top == desk.top && wnd.right == desk.right && wnd.bottom == desk.bottom) {
-			fullscreen=1;
-		}
-		//The desktop (explorer.exe) doesn't count as a fullscreen window.
-		//HWND desktop = FindWindow(L"WorkerW", NULL); //This is the window that's focused after pressing [the windows button]+D
-		HWND desktop = FindWindow(L"Progman", L"Program Manager");
-		if (fullscreen && desktop != NULL) {
-			DWORD desktop_pid, hwnd_pid;
-			GetWindowThreadProcessId(desktop,&desktop_pid);
-			GetWindowThreadProcessId(hwnd,&hwnd_pid);
-			if (desktop_pid == hwnd_pid) {
-				fullscreen=0;
+		HWND hwnd;
+		if ((hwnd=GetForegroundWindow()) != NULL) {
+			//Get window and desktop size
+			RECT wnd;
+			if (GetWindowRect(hwnd,&wnd) == 0) {
+				#ifdef DEBUG
+				Error(L"GetWindowRect(hwnd)",L"LowLevelKeyboardProc()",GetLastError(),__LINE__);
+				#endif
+				return CallNextHookEx(NULL, nCode, wParam, lParam); 
+			}
+			RECT desk;
+			if (GetWindowRect(GetDesktopWindow(),&desk) == 0) {
+				#ifdef DEBUG
+				Error(L"GetWindowRect(GetDesktopWindow())",L"LowLevelKeyboardProc()",GetLastError(),__LINE__);
+				#endif
+				return CallNextHookEx(NULL, nCode, wParam, lParam); 
+			}
+			
+			//Are we in a fullscreen window?
+			if (wnd.left == desk.left && wnd.top == desk.top && wnd.right == desk.right && wnd.bottom == desk.bottom) {
+				fullscreen=1;
+			}
+			//The desktop (explorer.exe) doesn't count as a fullscreen window.
+			//HWND desktop = FindWindow(L"WorkerW", NULL); //This is the window that's focused after pressing [the windows button]+D
+			HWND desktop = FindWindow(L"Progman", L"Program Manager");
+			if (fullscreen && desktop != NULL) {
+				DWORD desktop_pid, hwnd_pid;
+				GetWindowThreadProcessId(desktop,&desktop_pid);
+				GetWindowThreadProcessId(hwnd,&hwnd_pid);
+				if (desktop_pid == hwnd_pid) {
+					fullscreen=0;
+				}
 			}
 		}
 		
