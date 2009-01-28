@@ -9,22 +9,27 @@ if not exist build (
 windres -o build/resources.o resources.rc
 
 if "%1" == "all" (
-	echo Building all
+	@echo.
+	echo Building binaries
+	if not exist "build/en-US/KillKeys" (
+		mkdir "build\en-US\KillKeys"
+	)
+	gcc -o "build/en-US/KillKeys/KillKeys.exe" killkeys.c build/resources.o -mwindows -lshlwapi -lwininet
+	if exist "build/en-US/KillKeys/KillKeys.exe" (
+		strip "build/en-US/KillKeys/KillKeys.exe"
+	)
 	
 	for /D %%f in (localization/*) do (
 		@echo.
-		echo Building %%f
-		if not exist "build/%%f/KillKeys" (
-			mkdir "build\%%f\KillKeys"
+		echo Putting together %%f
+		if not %%f == en-US (
+			if not exist "build/%%f/KillKeys" (
+				mkdir "build\%%f\KillKeys"
+			)
+			copy "build\en-US\KillKeys\KillKeys.exe" "build/%%f/KillKeys"
 		)
 		copy "localization\%%f\info.txt" "build/%%f/KillKeys"
 		copy "KillKeys.ini" "build/%%f/KillKeys"
-		
-		gcc -o "build/%%f/KillKeys/KillKeys.exe" killkeys.c build/resources.o -mwindows -lshlwapi -lwininet -DL10N_FILE=\"localization/%%f/strings.h\"
-		if exist "build/%%f/KillKeys/KillKeys.exe" (
-			strip "build/%%f/KillKeys/KillKeys.exe"
-			upx --best -qq "build/%%f/KillKeys/KillKeys.exe"
-		)
 	)
 	
 	@echo.
