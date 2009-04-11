@@ -33,7 +33,7 @@ if "%1" == "all" (
 		)
 		copy "localization\%%f\info.txt" "build\%%f\KillKeys"
 		copy "KillKeys.ini" "build\%%f\KillKeys"
-		"build\ini.exe" "build\%%f\SuperF4\SuperF4.ini" SuperF4 Language %%f
+		"build\ini.exe" "build\%%f\KillKeys\KillKeys.ini" KillKeys Language %%f
 	)
 	
 	@echo.
@@ -46,6 +46,6 @@ if "%1" == "all" (
 		start KillKeys.exe
 	)
 	if "%1" == "hide" (
-		start SuperF4.exe -hide
+		start KillKeys.exe -hide
 	)
 )
