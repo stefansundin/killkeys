@@ -19,6 +19,7 @@ Changelog
 ---------
 1.1:
 Language can now be changed in KillKeys.ini.
+Fixed crash when using both Keys and Keys_Fullscreen.
 
 1.0 - 2009-01-12:
 Merged keyhook.dll into KillKeys.exe.

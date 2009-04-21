@@ -176,7 +176,7 @@ Section "${APP_NAME} (${APP_VERSION})" sec_app
 		Goto files_installed
 	es-ES:
 		File "build\es-ES\${APP_NAME}\info.txt"
-		WriteINIStr "${APP_NAME}.ini" "${APP_NAME}" "Language" "es-ES"
+		WriteINIStr "$INSTDIR\${APP_NAME}.ini" "${APP_NAME}" "Language" "es-ES"
 		Goto files_installed
 
 	files_installed:

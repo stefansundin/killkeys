@@ -634,7 +634,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 		keys_alloc=0;
 		while (*pos != '\0' && swscanf(pos,L"%02X%n",&temp,&numread) != EOF) {
 			//Make sure we have enough space
-			if (numkeys == keys_alloc) {
+			if (numkeys_fullscreen == keys_alloc) {
 				keys_alloc+=100;
 				if ((keys_fullscreen=realloc(keys_fullscreen,keys_alloc*sizeof(int))) == NULL) {
 					Error(L"realloc(keys_fullscreen)",L"Out of memory?",GetLastError(),__LINE__);
