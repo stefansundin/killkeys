@@ -6,10 +6,10 @@ if not exist build (
 	mkdir build
 )
 
-windres -o build\resources.o resources.rc
+windres -o build\resources.o include\resources.rc
 
 if "%1" == "all" (
-	gcc -o build\ini.exe ini.c -lshlwapi
+	gcc -o build\ini.exe include\ini.c -lshlwapi
 	
 	@echo.
 	echo Building binaries
@@ -32,7 +32,7 @@ if "%1" == "all" (
 			copy "build\en-US\KillKeys\KillKeys.exe" "build\%%f\KillKeys"
 		)
 		copy "localization\%%f\info.txt" "build\%%f\KillKeys"
-		copy "KillKeys.ini" "build\%%f\KillKeys"
+		copy KillKeys.ini "build\%%f\KillKeys"
 		"build\ini.exe" "build\%%f\KillKeys\KillKeys.ini" KillKeys Language %%f
 	)
 	
