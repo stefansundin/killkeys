@@ -36,7 +36,8 @@
 #define SWM_ABOUT              WM_APP+8
 #define SWM_EXIT               WM_APP+9
 
-//Balloon stuff missing in MinGW
+//Stuff missing in MinGW
+#define HWND_MESSAGE ((HWND)-3)
 #define NIIF_USER 4
 #define NIN_BALLOONSHOW        WM_USER+2
 #define NIN_BALLOONHIDE        WM_USER+3
@@ -87,7 +88,7 @@ int *keys = NULL;
 int numkeys = 0;
 int *keys_fullscreen = NULL;
 int numkeys_fullscreen = 0;
-HWND progman = NULL
+HWND progman = NULL;
 HWND desktop = NULL;
 
 //Error() and CheckForUpdate()
@@ -151,7 +152,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR szCmdLine, in
 	RegisterClassEx(&wnd);
 	
 	//Create window
-	HWND hwnd = CreateWindowEx(0, wnd.lpszClassName, APP_NAME, WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, NULL, NULL, hInst, NULL);
+	HWND hwnd = CreateWindowEx(0, wnd.lpszClassName, APP_NAME, WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, HWND_MESSAGE, NULL, hInst, NULL);
 	
 	//Load icons
 	icon[0] = LoadImage(hInst,L"tray-disabled",IMAGE_ICON,0,0,LR_DEFAULTCOLOR);
