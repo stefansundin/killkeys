@@ -1,0 +1,43 @@
+KillKeys
+Feito por Stefan Sundin
+
+Cando está activado, as teclas especificadas en KillKeys.ini estarán desactivadas.
+Por defecto, as teclas de Windows e a tecla do menú están desactivadas en pantalla completa.
+
+KillKeys ha comprobar automaticamente se hai actualizacións.
+Pódelo desactivar editando KillKeys.ini, poñendo CheckForUpdate=0 no apartado [Update].
+
+Podes usar -hide como parámetro para esconder a icona na bandexa do sistema.
+
+Visita a páxina web en http://killkeys.googlecode.com/
+Envía a túa opinión ou comentarios (en inglés ou senón poñendo "Galician" ó comezo) a recover89@gmail.com
+
+Se atopas útil este programa, considera doar diñeiro por favor.
+Podes atopar como doar na páxina web.
+
+KillKeys é un programa de código fonte aberto, baixo a licencia GPL.
+
+Listaxe de Cambios:
+-------------------
+1.1:
+Arranxado un erro cando se usaba Keys e Keys_Fullscreen ó mesmo tempo.
+Agora pódese cambiar a lingua en KillKeys.ini seleccionando adecuadamente Language=lingua.
+Unha morea de arreglos pequenos.
+
+1.0 - 2009-01-12:
+Fusionouse keyhook.dll con KillKeys.exe.
+Eliminouse o arquivo de rexistro.
+Engadiuse a comprobación de actualizacións.
+Moveuse a configuración a KillKeys.ini.
+
+0.3 - 2008-11-14:
+Engadida a función de desactivar as teclas en pantalla completa.
+Eliminada a restricción de 100 teclas.
+Agora log-keyhook.txt é killkeys-log.txt
+
+0.2 - 2008-06-07:
+Agora chámase KillKeys.
+Lee as teclas de config.txt.
+
+0.1 - 2008-04-19:
+Lanzamento inicial.
