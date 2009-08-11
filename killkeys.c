@@ -296,7 +296,7 @@ int RemoveTray() {
 	
 	//Success
 	tray_added=0;
-   return 0;
+	return 0;
 }
 
 void SetAutostart(int on, int hide) {
