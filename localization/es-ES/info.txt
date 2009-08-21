@@ -16,8 +16,15 @@ Envía comentarios a recover89@gmail.com
 Si opinas que este programa es útil, por favor, toma en consideración realizar un donativo. 
 Encontrarás las instrucciones en la página web.
 
+KillKeys es un programa de código abierto bajo licencia GPL.
+
 Historial de cambios
 --------------------
+1.1:
+
+El idioma puede cambiarse en el fichero KillKeys.ini.
+Corrección de errores.
+
 1.0 - 2009-01-12:
 Fundido keyhook.dll en KillKeys.exe.
 Eliminado el fichero log.
