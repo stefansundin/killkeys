@@ -28,6 +28,7 @@ struct strings gl_ES = {
  /* about_title */    L"Acerca de " APP_NAME,
  /* about */          APP_NAME " - " APP_VERSION "\n\
 Feito por Stefan Sundin\n\
+Traducido por Alexander De Sousa\n\
 \n\
 Cando está activado, as teclas especificadas en KillKeys.ini estarán desactivadas.\n\
 Por defecto, as teclas de Windows e a tecla do menú están desactivadas en pantalla completa.\n\
