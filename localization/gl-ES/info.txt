@@ -20,7 +20,7 @@ KillKeys é un programa de código fonte aberto, baixo a licencia GPL.
 
 Listaxe de Cambios:
 -------------------
-1.1:
+1.1 - 2009-08-30:
 Arranxado un erro cando se usaba Keys e Keys_Fullscreen ó mesmo tempo.
 Agora pódese cambiar a lingua en KillKeys.ini seleccionando adecuadamente Language=lingua.
 Unha morea de arreglos pequenos.

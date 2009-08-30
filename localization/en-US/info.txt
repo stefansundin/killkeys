@@ -19,7 +19,7 @@ KillKeys is open source, licensed under GPL.
 
 Changelog
 ---------
-1.1:
+1.1 - 2009-08-30:
 Fixed crash when using both Keys and Keys_Fullscreen.
 Language can now be changed in KillKeys.ini.
 A lot of small bugs fixes.
