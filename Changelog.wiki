@@ -2,6 +2,11 @@
 
 Check [http://killkeys.googlecode.com/svn/trunk/localization/en-US/info.txt info.txt] if there seems to be something missing. Note that info.txt can contain changes for upcoming versions.
 
+*1.1* - 2009-08-30:
+  * Fixed crash when using both Keys and Keys_Fullscreen.
+  * Language can now be changed in KillKeys.ini.
+  * A lot of small bugs fixes.
+
 *1.0* - 2009-01-12:
   * Merged keyhook.dll into KillKeys.exe.
   * Removed log file.
