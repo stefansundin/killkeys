@@ -9,14 +9,14 @@ if not exist build (
 windres -o build\resources.o include\resources.rc
 
 if "%1" == "all" (
-	gcc -o build\ini.exe include\ini.c -lshlwapi
+	gcc -march=pentium2 -mtune=pentium2 -o build\ini.exe include\ini.c -lshlwapi
 	
 	@echo.
 	echo Building binaries
 	if not exist "build\en-US\KillKeys" (
 		mkdir "build\en-US\KillKeys"
 	)
-	gcc -o "build\en-US\KillKeys\KillKeys.exe" killkeys.c build\resources.o -mwindows -lshlwapi -lwininet
+	gcc -O2 -march=pentium2 -mtune=pentium2 -o "build\en-US\KillKeys\KillKeys.exe" killkeys.c build\resources.o -mwindows -lshlwapi -lwininet
 	if not exist "build\en-US\KillKeys\KillKeys.exe" (
 		exit /b
 	)
@@ -40,7 +40,7 @@ if "%1" == "all" (
 	echo Building installer
 	makensis /V2 installer.nsi
 ) else (
-	gcc -o KillKeys.exe killkeys.c build\resources.o -mwindows -lshlwapi -lwininet -DDEBUG
+	gcc -march=pentium2 -mtune=pentium2 -o KillKeys.exe killkeys.c build\resources.o -mwindows -lshlwapi -lwininet -DDEBUG
 	
 	if "%1" == "run" (
 		start KillKeys.exe
