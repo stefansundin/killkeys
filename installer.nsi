@@ -20,6 +20,7 @@
 !include "Sections.nsh"
 !include "LogicLib.nsh"
 !include "StrFunc.nsh"
+!include "x64.nsh"
 ${StrLoc}
 
 ;General
@@ -60,20 +61,24 @@ Page custom PageUpgrade PageUpgradeLeave
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_INSTFILES
 
-;Languages
+; Variables
+
+Var UpgradeState
+Var AutostartSectionState ;Helps keep track of the autostart checkboxes
+
+; Languages
 
 !include "localization\installer.nsh"
-
 !insertmacro MUI_RESERVEFILE_LANGDLL
 
-;Variables
+!macro Lang id lang
+${If} $LANGUAGE == ${id}
+	File "build\${lang}\${APP_NAME}\info.txt"
+	WriteINIStr "$INSTDIR\${APP_NAME}.ini" "${APP_NAME}" "Language" "${lang}"
+${EndIf}
+!macroend
 
-Var Upgrade_State
-Var Upgradebox
-Var Newinstallbox
-Var IndependentSectionState ;Helps keep track of the autostart checkboxes
-
-;Functions
+; Functions
 
 !macro AddTray un
 Function ${un}AddTray
@@ -94,7 +99,7 @@ Function ${un}CloseApp
 	;Close app if running
 	FindWindow $0 "${APP_NAME}" ""
 	IntCmp $0 0 done
-		${If} $Upgrade_State != ${BST_CHECKED}
+		${If} $UpgradeState != ${BST_CHECKED}
 			StrCpy $1 "$(L10N_RUNNING)"
 			${If} "${un}" == "un."
 				StrCpy $1 "$1$\n$(L10N_RUNNING_UNINSTALL)"
@@ -115,7 +120,9 @@ FunctionEnd
 !insertmacro CloseApp ""
 !insertmacro CloseApp "un."
 
-;Detect previous installation
+; Detect previous installation
+
+Var Upgradebox
 
 Function PageUpgrade
 	ReadRegStr $0 HKCU "Software\${APP_NAME}" "Install_Dir"
@@ -131,11 +138,11 @@ Function PageUpgrade
 	${NSD_CreateLabel} 16 60 100% 20u "$(L10N_UPGRADE_INI)"
 	
 	${NSD_CreateRadioButton} 0 95 100% 10u "$(L10N_UPGRADE_INSTALL)"
-	Pop $Newinstallbox
+	Pop $0
 	
 	;Check the correct button when going back to this page
-	${If} $Upgrade_State == ${BST_UNCHECKED}
-		${NSD_Check} $Newinstallbox
+	${If} $UpgradeState == ${BST_UNCHECKED}
+		${NSD_Check} $0
 	${Else}
 		${NSD_Check} $Upgradebox
 	${EndIf}
@@ -144,7 +151,7 @@ Function PageUpgrade
 FunctionEnd
 
 Function PageUpgradeLeave
-	${NSD_GetState} $Upgradebox $Upgrade_State
+	${NSD_GetState} $Upgradebox $UpgradeState
 FunctionEnd
 
 ;Installer
@@ -168,7 +175,7 @@ Section "$(L10N_UPDATE_SECTION)" sec_update
 	done:
 SectionEnd
 
-Section "${APP_NAME} (${APP_VERSION})" sec_app
+Section "${APP_NAME}" sec_app
 	SectionIn RO
 	
 	;Close app if running
@@ -185,26 +192,21 @@ Section "${APP_NAME} (${APP_VERSION})" sec_app
 		Rename "${APP_NAME}.ini" "${APP_NAME}-old.ini"
 	
 	;Install files
-	File "build\en-US\${APP_NAME}\${APP_NAME}.exe"
-	File "build\en-US\${APP_NAME}\${APP_NAME}.ini"
+	!ifdef x64
+	${If} ${RunningX64}
+		File "build\x64\${APP_NAME}.exe"
+	${Else}
+		File "build\${APP_NAME}.exe"
+	${EndIf}
+	!else
+	File "build\${APP_NAME}.exe"
+	!endif
+	File "${APP_NAME}.ini"
 	
-	IntCmp $LANGUAGE ${LANG_ENGLISH}  en-US
-	IntCmp $LANGUAGE ${LANG_SPANISH}  es-ES
-	IntCmp $LANGUAGE ${LANG_GALICIAN} gl-ES
-	en-US:
-		File "build\en-US\${APP_NAME}\info.txt"
-		Goto files_installed
-	es-ES:
-		File "build\es-ES\${APP_NAME}\info.txt"
-		WriteINIStr "$INSTDIR\${APP_NAME}.ini" "${APP_NAME}" "Language" "es-ES"
-		Goto files_installed
-	gl-ES:
-		File "build\gl-ES\${APP_NAME}\info.txt"
-		WriteINIStr "$INSTDIR\${APP_NAME}.ini" "${APP_NAME}" "Language" "gl-ES"
-		Goto files_installed
-
-	files_installed:
-
+	!insertmacro Lang ${LANG_ENGLISH}  en-US
+	!insertmacro Lang ${LANG_SPANISH}  es-ES
+	!insertmacro Lang ${LANG_GALICIAN} gl-ES
+	
 	;Create uninstaller
 	WriteUninstaller "Uninstall.exe"
 	WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_NAME}" "UninstallString" '"$INSTDIR\Uninstall.exe"'
@@ -233,13 +235,21 @@ FunctionEnd
 
 ;Used when upgrading to skip the components and directory pages
 Function SkipPage
-	${If} $Upgrade_State == ${BST_CHECKED}
+	${If} $UpgradeState == ${BST_CHECKED}
 		!insertmacro UnselectSection ${sec_shortcut}
 		Abort
 	${EndIf}
 FunctionEnd
 
 Function .onInit
+	;Detect x64
+	!ifdef x64
+	${If} ${RunningX64}
+		StrCpy $INSTDIR "$PROGRAMFILES64\${APP_NAME}"
+		SectionSetText ${sec_app} "${APP_NAME} (x64)"
+	${EndIf}
+	!endif
+	;Display language selection and add tray if program is running
 	!insertmacro MUI_LANGDLL_DISPLAY
 	Call AddTray
 	;If silent, deselect check for update
@@ -247,13 +257,13 @@ Function .onInit
 		!insertmacro UnselectSection ${sec_update}
 	autostart_check:
 	;Determine current autostart setting
-	StrCpy $IndependentSectionState 0
+	StrCpy $AutostartSectionState 0
 	ReadRegStr $0 HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${APP_NAME}"
 	IfErrors done
 		!insertmacro SelectSection ${sec_autostart}
 		${StrLoc} $0 $0 "-hide" "<"
 		${If} $0 != ""
-			StrCpy $IndependentSectionState 1
+			StrCpy $AutostartSectionState 1
 			!insertmacro SelectSection ${sec_hide}
 		${EndIf}
 	done:
@@ -262,20 +272,20 @@ FunctionEnd
 Function .onSelChange
 	;Hide tray automatically checks Autostart
 	${If} ${SectionIsSelected} ${sec_hide}
-		${If} $IndependentSectionState == 0
-			StrCpy $IndependentSectionState 1
+		${If} $AutostartSectionState == 0
+			StrCpy $AutostartSectionState 1
 			!insertmacro SelectSection ${sec_autostart}
 		${ElseIfNot} ${SectionIsSelected} ${sec_autostart}
-			StrCpy $IndependentSectionState 0
+			StrCpy $AutostartSectionState 0
 			!insertmacro UnselectSection ${sec_hide}
 		${EndIf}
 	${Else}
-		StrCpy $IndependentSectionState 0
+		StrCpy $AutostartSectionState 0
 	${EndIf}
 FunctionEnd
 
 Function .onInstSuccess
-	;Set autostart or remove it
+	;Set or remove autostart
 	${If} ${SectionIsSelected} ${sec_hide}
 		WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${APP_NAME}" '"$INSTDIR\${APP_NAME}.exe" -hide'
 	${ElseIf} ${SectionIsSelected} ${sec_autostart}

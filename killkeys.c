@@ -38,11 +38,13 @@
 
 //Stuff missing in MinGW
 #define HWND_MESSAGE ((HWND)-3)
+#ifndef NIIF_USER
 #define NIIF_USER 4
 #define NIN_BALLOONSHOW        WM_USER+2
 #define NIN_BALLOONHIDE        WM_USER+3
 #define NIN_BALLOONTIMEOUT     WM_USER+4
 #define NIN_BALLOONUSERCLICK   WM_USER+5
+#endif
 
 //Localization
 struct strings {
@@ -88,8 +90,6 @@ int *keys = NULL;
 int numkeys = 0;
 int *keys_fullscreen = NULL;
 int numkeys_fullscreen = 0;
-HWND progman = NULL;
-HWND desktop = NULL;
 
 //Error() and CheckForUpdate()
 #include "include/error.h"
@@ -240,7 +240,7 @@ void ShowContextMenu(HWND hwnd) {
 	HMENU hAutostartMenu = CreatePopupMenu();
 	InsertMenu(hAutostartMenu, -1, MF_BYPOSITION|(autostart_enabled?MF_CHECKED:0), (autostart_enabled?SWM_AUTOSTART_OFF:SWM_AUTOSTART_ON), l10n->menu_autostart);
 	InsertMenu(hAutostartMenu, -1, MF_BYPOSITION|(autostart_hide?MF_CHECKED:0), (autostart_hide?SWM_AUTOSTART_HIDE_OFF:SWM_AUTOSTART_HIDE_ON), l10n->menu_hide);
-	InsertMenu(hMenu, -1, MF_BYPOSITION|MF_POPUP, (UINT)hAutostartMenu, l10n->menu_autostart);
+	InsertMenu(hMenu, -1, MF_BYPOSITION|MF_POPUP, (UINT_PTR)hAutostartMenu, l10n->menu_autostart);
 	InsertMenu(hMenu, -1, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
 	
 	//Update
@@ -356,7 +356,7 @@ BOOL CALLBACK MonitorEnumProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMoni
 
 
 //Hook
-_declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
+__declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
 	if (nCode == HC_ACTION && (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN)) {
 		int vkey = ((PKBDLLHOOKSTRUCT)lParam)->vkCode;
 		
@@ -367,13 +367,9 @@ _declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wPa
 		HWND window = GetForegroundWindow();
 		//Check if this window is fullscreen
 		if (!(GetWindowLongPtr(window,GWL_STYLE)&WS_CAPTION)) {
-			if (!IsWindow(progman)) {
-				progman = FindWindow(L"Progman",L"Program Manager");
-			}
-			if (!IsWindow(desktop)) {
-				desktop = FindWindow(L"WorkerW",NULL);
-			}
-			if (window != progman && window != desktop) {
+			wchar_t classname[8] = L"";
+			GetClassName(window, classname, sizeof(classname)/sizeof(wchar_t));
+			if (wcscmp(classname,L"WorkerW") && wcscmp(classname,L"Progman")) {
 				//Enumerate monitors
 				nummonitors = 0;
 				EnumDisplayMonitors(NULL, NULL, MonitorEnumProc, 0);
