@@ -10,10 +10,10 @@
 
 #define UNICODE
 #define _UNICODE
+#define _WIN32_IE 0x0600
 
 #include <stdio.h>
 #include <stdlib.h>
-#define _WIN32_IE 0x0600
 #include <windows.h>
 #include <shlwapi.h>
 #include <wininet.h>
@@ -21,7 +21,7 @@
 //App
 #define APP_NAME      L"KillKeys"
 #define APP_VERSION   "1.1"
-#define APP_URL       L"http://killkeys.googlecode.com/"
+#define APP_URL       L"http://code.google.com/p/killkeys/"
 #define APP_UPDATEURL L"http://killkeys.googlecode.com/svn/wiki/latest-stable.txt"
 
 //Messages
@@ -354,6 +354,36 @@ BOOL CALLBACK MonitorEnumProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMoni
 	return TRUE;
 }
 
+//Fullscreen
+int IsFullscreen(HWND window) {
+	if (GetWindowLongPtr(window,GWL_STYLE)&WS_CAPTION) {
+		return 0;
+	}
+	
+	wchar_t classname[8] = L"";
+	GetClassName(window, classname, sizeof(classname)/sizeof(wchar_t));
+	if (!wcscmp(classname,L"WorkerW") || !wcscmp(classname,L"Progman")) {
+		return 0;
+	}
+	
+	//Get window size
+	RECT wnd;
+	if (GetWindowRect(window,&wnd) == 0) {
+		//Error(L"GetWindowRect(&wnd)", L"IsFullscreen()", GetLastError(), TEXT(__FILE__), __LINE__);
+		return 0;
+	}
+	
+	//Enumerate monitors
+	nummonitors = 0;
+	EnumDisplayMonitors(NULL, NULL, MonitorEnumProc, 0);
+	//Loop monitors
+	int i;
+	for (i=0; i < nummonitors; i++) {
+		if (wnd.left == monitors[i].left && wnd.top == monitors[i].top && wnd.right == monitors[i].right && wnd.bottom == monitors[i].bottom) {
+			return 1;
+		}
+	}
+}
 
 //Hook
 __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
@@ -361,33 +391,10 @@ __declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wP
 		int vkey = ((PKBDLLHOOKSTRUCT)lParam)->vkCode;
 		
 		int stop = 0;
-		int fullscreen = 0;
 		int i;
 		
 		HWND window = GetForegroundWindow();
-		//Check if this window is fullscreen
-		if (!(GetWindowLongPtr(window,GWL_STYLE)&WS_CAPTION)) {
-			wchar_t classname[8] = L"";
-			GetClassName(window, classname, sizeof(classname)/sizeof(wchar_t));
-			if (wcscmp(classname,L"WorkerW") && wcscmp(classname,L"Progman")) {
-				//Enumerate monitors
-				nummonitors = 0;
-				EnumDisplayMonitors(NULL, NULL, MonitorEnumProc, 0);
-				//Get window size
-				RECT wnd;
-				if (GetWindowRect(window,&wnd) == 0) {
-					Error(L"GetWindowRect(&wnd)", L"LowLevelKeyboardProc()", GetLastError(), TEXT(__FILE__), __LINE__);
-				}
-				//Loop monitors
-				int i;
-				for (i=0; i < nummonitors; i++) {
-					if (wnd.left == monitors[i].left && wnd.top == monitors[i].top && wnd.right == monitors[i].right && wnd.bottom == monitors[i].bottom) {
-						fullscreen = 1;
-						break;
-					}
-				}
-			}
-		}
+		int fullscreen = IsFullscreen(window);
 		
 		//Check if the key should be blocked
 		if (!fullscreen) {
@@ -425,6 +432,14 @@ int HookKeyboard() {
 	//Update settings
 	SendMessage(traydata.hWnd, WM_UPDATESETTINGS, 0, 0);
 	
+	//Name decoration
+	//This is really an ugly hack to make both MinGW/mingw-w32 and mingw-w64 use their respective name decorations
+	#ifdef _WIN64
+	#define KeyhookNameDecoration ""    //mingw-w64
+	#else
+	#define KeyhookNameDecoration "@12" //MinGW/mingw-w32
+	#endif
+	
 	//Load library
 	wchar_t path[MAX_PATH];
 	GetModuleFileName(NULL, path, sizeof(path)/sizeof(wchar_t));
@@ -435,14 +450,14 @@ int HookKeyboard() {
 	}
 	
 	//Get address to keyboard hook (beware name mangling)
-	HOOKPROC procaddr = (HOOKPROC)GetProcAddress(hinstDLL,"LowLevelKeyboardProc@12");
+	HOOKPROC procaddr = (HOOKPROC)GetProcAddress(hinstDLL, "LowLevelKeyboardProc"KeyhookNameDecoration);
 	if (procaddr == NULL) {
-		Error(L"GetProcAddress('LowLevelKeyboardProc@12')", L"Check the "APP_NAME" website if there is an update, if the latest version doesn't fix this, please report it.", GetLastError(), TEXT(__FILE__), __LINE__);
+		Error(L"GetProcAddress('LowLevelKeyboardProc'"KeyhookNameDecoration")", L"Check the "APP_NAME" website if there is an update, if the latest version doesn't fix this, please report it.", GetLastError(), TEXT(__FILE__), __LINE__);
 		return 1;
 	}
 	
 	//Set up the hook
-	keyhook = SetWindowsHookEx(WH_KEYBOARD_LL,procaddr,hinstDLL,0);
+	keyhook = SetWindowsHookEx(WH_KEYBOARD_LL, procaddr, hinstDLL, 0);
 	if (keyhook == NULL) {
 		Error(L"SetWindowsHookEx(WH_KEYBOARD_LL)", L"Check the "APP_NAME" website if there is an update, if the latest version doesn't fix this, please report it.", GetLastError(), TEXT(__FILE__), __LINE__);
 		return 1;

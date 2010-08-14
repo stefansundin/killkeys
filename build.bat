@@ -29,17 +29,19 @@ if "%1" == "all" (
 	)
 	
 	for /D %%f in (localization/*) do (
-		@echo.
-		echo Putting together %%f
-		if not exist "build\%%f\KillKeys". mkdir "build\%%f\KillKeys"
-		copy "build\KillKeys.exe" "build\%%f\KillKeys"
-		copy "localization\%%f\info.txt" "build\%%f\KillKeys"
-		copy KillKeys.ini "build\%%f\KillKeys"
-		"build\ini.exe" "build\%%f\KillKeys\KillKeys.ini" KillKeys Language %%f
-		if "%2" == "x64" (
-			if not exist "build\x64\%%f\KillKeys". mkdir "build\x64\%%f\KillKeys"
-			copy "build\x64\KillKeys.exe" "build\x64\%%f\KillKeys"
-			copy "build\%%f\KillKeys\KillKeys.ini" "build\x64\%%f\KillKeys\KillKeys.ini"
+		if not "%%f" == ".svn" (
+			@echo.
+			echo Putting together %%f
+			if not exist "build\%%f\KillKeys". mkdir "build\%%f\KillKeys"
+			copy "build\KillKeys.exe" "build\%%f\KillKeys"
+			copy "localization\%%f\info.txt" "build\%%f\KillKeys"
+			copy KillKeys.ini "build\%%f\KillKeys"
+			"build\ini.exe" "build\%%f\KillKeys\KillKeys.ini" KillKeys Language %%f
+			if "%2" == "x64" (
+				if not exist "build\x64\%%f\KillKeys". mkdir "build\x64\%%f\KillKeys"
+				copy "build\x64\KillKeys.exe" "build\x64\%%f\KillKeys"
+				copy "build\%%f\KillKeys\KillKeys.ini" "build\x64\%%f\KillKeys\KillKeys.ini"
+			)
 		)
 	)
 	

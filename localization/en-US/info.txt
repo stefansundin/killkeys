@@ -19,6 +19,9 @@ KillKeys is open source, licensed under GPL.
 
 Changelog
 ---------
+1.2:
+Fixed an issue in Windows 7 where the desktop would be treated as a fullscreen window.
+
 1.1 - 2009-08-30:
 Fixed crash when using both Keys and Keys_Fullscreen.
 Language can now be changed in KillKeys.ini.
