@@ -4,18 +4,13 @@ Traducido por Fabrizio Ferri (algernon@gmail.com)
 
 Una vez activado, las teclas especificadas en el fichero KillKeys.ini serán desactivadas.
 Por defecto, la teclá Windows y la tecla Menú están desactivadas en pantalla completa.
+KillKeys buscará actualizaciones automáticamente. Puedes desactivar esto en el fichero KillKeys.ini.
 
-KillKeys buscará actualizaciones automáticamente.
-Puedes desactivar esto en el fichero KillKeys.ini.
-
-Puedes usar el parámetro -hide para ocultar el icono del área de notificación.
-
-Visita la página web en http://altdrag.googlecode.com/
-Envía comentarios a recover89@gmail.com
+Visita la página web en http://code.google.com/p/killkeys/
+Visita la página web del autor en http://stefansundin.com/
 
 Si opinas que este programa es útil, por favor, toma en consideración realizar un donativo. 
 Encontrarás las instrucciones en la página web.
-
 KillKeys es un programa de código abierto bajo licencia GPL.
 
 Historial de cambios

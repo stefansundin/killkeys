@@ -6,42 +6,41 @@
 
 set prefix32=i686-w64-mingw32-
 set prefix64=x86_64-w64-mingw32-
+set l10n=en-US es-ES gl-ES
 
 taskkill /IM KillKeys.exe
 
 if not exist build. mkdir build
 
-%prefix32%windres -o build\killkeys.o include\killkeys.rc
-
 if "%1" == "all" (
-	%prefix32%gcc -o build\ini.exe include\ini.c -lshlwapi -march=pentium2
+	%prefix32%windres -o build\killkeys.o include\killkeys.rc
+	%prefix32%gcc -o build\ini.exe include\ini.c -lshlwapi
 	
 	@echo.
 	echo Building binaries
-	%prefix32%gcc -o "build\KillKeys.exe" killkeys.c build\killkeys.o -mwindows -lshlwapi -lwininet -march=pentium2 -O2 -s
+	%prefix32%gcc -o "build\KillKeys.exe" killkeys.c build\killkeys.o -mwindows -lshlwapi -lwininet -O2 -s
 	if not exist "build\KillKeys.exe". exit /b
 	
 	if "%2" == "x64" (
-		%prefix64%windres -o build\killkeys_x64.o include\killkeys.rc
 		if not exist "build\x64". mkdir "build\x64"
-		%prefix64%gcc -o "build\x64\KillKeys.exe" killkeys.c build\killkeys_x64.o -mwindows -lshlwapi -lwininet -O2 -s
+		%prefix64%windres -o build\x64\killkeys.o include\killkeys.rc
+		%prefix64%gcc -o "build\x64\KillKeys.exe" killkeys.c build\x64\killkeys.o -mwindows -lshlwapi -lwininet -O2 -s
 		if not exist "build\x64\KillKeys.exe". exit /b
 	)
 	
-	for /D %%f in (localization/*) do (
-		if not "%%f" == ".svn" (
-			@echo.
-			echo Putting together %%f
-			if not exist "build\%%f\KillKeys". mkdir "build\%%f\KillKeys"
-			copy "build\KillKeys.exe" "build\%%f\KillKeys"
-			copy "localization\%%f\info.txt" "build\%%f\KillKeys"
-			copy KillKeys.ini "build\%%f\KillKeys"
-			"build\ini.exe" "build\%%f\KillKeys\KillKeys.ini" KillKeys Language %%f
-			if "%2" == "x64" (
-				if not exist "build\x64\%%f\KillKeys". mkdir "build\x64\%%f\KillKeys"
-				copy "build\x64\KillKeys.exe" "build\x64\%%f\KillKeys"
-				copy "build\%%f\KillKeys\KillKeys.ini" "build\x64\%%f\KillKeys\KillKeys.ini"
-			)
+	for %%f in (%l10n%) do (
+		@echo.
+		echo Putting together %%f
+		if not exist "build\%%f\KillKeys". mkdir "build\%%f\KillKeys"
+		copy "build\KillKeys.exe" "build\%%f\KillKeys"
+		copy "localization\%%f\info.txt" "build\%%f\KillKeys"
+		copy "KillKeys.ini" "build\%%f\KillKeys"
+		"build\ini.exe" "build\%%f\KillKeys\KillKeys.ini" KillKeys Language %%f
+		if "%2" == "x64" (
+			if not exist "build\x64\%%f\KillKeys". mkdir "build\x64\%%f\KillKeys"
+			copy "build\x64\KillKeys.exe" "build\x64\%%f\KillKeys"
+			copy "build\%%f\KillKeys\info.txt" "build\x64\%%f\KillKeys"
+			copy "build\%%f\KillKeys\KillKeys.ini" "build\x64\%%f\KillKeys\KillKeys.ini"
 		)
 	)
 	
@@ -53,15 +52,14 @@ if "%1" == "all" (
 		makensis /V2 installer.nsi
 	)
 ) else if "%1" == "x64" (
-	%prefix64%windres -o build\killkeys_x64.o include\killkeys.rc
-	%prefix64%gcc -o KillKeys.exe killkeys.c build\killkeys_x64.o -mwindows -lshlwapi -lwininet -g -DDEBUG
+	if not exist "build\x64". mkdir "build\x64"
+	%prefix64%windres -o build\x64\killkeys.o include\killkeys.rc
+	%prefix64%gcc -o KillKeys.exe killkeys.c build\x64\killkeys.o -mwindows -lshlwapi -lwininet -g -DDEBUG
 ) else (
-	%prefix32%gcc -o KillKeys.exe killkeys.c build\killkeys.o -mwindows -lshlwapi -lwininet -march=pentium2 -g -DDEBUG
+	%prefix32%windres -o build\killkeys.o include\killkeys.rc
+	%prefix32%gcc -o KillKeys.exe killkeys.c build\killkeys.o -mwindows -lshlwapi -lwininet -g -DDEBUG
 	
 	if "%1" == "run" (
 		start KillKeys.exe
-	)
-	if "%1" == "hide" (
-		start KillKeys.exe -hide
 	)
 )

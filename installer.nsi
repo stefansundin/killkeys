@@ -1,5 +1,3 @@
-;KillKeys installer
-;
 ;Copyright (C) 2009  Stefan Sundin (recover89@gmail.com)
 ;
 ;This program is free software: you can redistribute it and/or modify
@@ -9,12 +7,11 @@
 
 
 !define APP_NAME      "KillKeys"
-!define APP_VERSION   "1.1"
-!define APP_URL       "http://killkeys.googlecode.com/"
+!define APP_VERSION   "1.2"
+!define APP_URL       "http://code.google.com/p/killkeys/"
 !define APP_UPDATEURL "http://killkeys.googlecode.com/svn/wiki/latest-stable.txt"
-!define L10N_VERSION  2
 
-;Libraries
+; Libraries
 
 !include "MUI2.nsh"
 !include "Sections.nsh"
@@ -23,7 +20,7 @@
 !include "x64.nsh"
 ${StrLoc}
 
-;General
+; General
 
 Name "${APP_NAME} ${APP_VERSION}"
 OutFile "build/${APP_NAME}-${APP_VERSION}.exe"
@@ -34,7 +31,7 @@ ShowInstDetails hide
 ShowUninstDetails show
 SetCompressor /SOLID lzma
 
-;Interface
+; Interface
 
 !define MUI_LANGDLL_REGISTRY_ROOT "HKCU" 
 !define MUI_LANGDLL_REGISTRY_KEY "Software\${APP_NAME}" 
@@ -43,12 +40,11 @@ SetCompressor /SOLID lzma
 !define MUI_COMPONENTSPAGE_NODESC
 
 !define MUI_FINISHPAGE_SHOWREADME_NOTCHECKED
-;!define MUI_FINISHPAGE_SHOWREADME_TEXT "Read info.txt"
 !define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\info.txt"
 !define MUI_FINISHPAGE_RUN
 !define MUI_FINISHPAGE_RUN_FUNCTION "Launch"
 
-;Pages
+; Pages
 
 Page custom PageUpgrade PageUpgradeLeave
 !define MUI_PAGE_CUSTOMFUNCTION_PRE SkipPage
@@ -123,6 +119,7 @@ FunctionEnd
 ; Detect previous installation
 
 Var Upgradebox
+Var Uninstallbox
 
 Function PageUpgrade
 	ReadRegStr $0 HKCU "Software\${APP_NAME}" "Install_Dir"
@@ -140,6 +137,9 @@ Function PageUpgrade
 	${NSD_CreateRadioButton} 0 95 100% 10u "$(L10N_UPGRADE_INSTALL)"
 	Pop $0
 	
+	${NSD_CreateRadioButton} 0 130 100% 10u "$(L10N_UPGRADE_UNINSTALL)"
+	Pop $Uninstallbox
+	
 	;Check the correct button when going back to this page
 	${If} $UpgradeState == ${BST_UNCHECKED}
 		${NSD_Check} $0
@@ -152,9 +152,14 @@ FunctionEnd
 
 Function PageUpgradeLeave
 	${NSD_GetState} $Upgradebox $UpgradeState
+	${NSD_GetState} $Uninstallbox $0
+	${If} $0 == ${BST_CHECKED}
+		Exec "$INSTDIR\Uninstall.exe"
+		Quit
+	${EndIf}
 FunctionEnd
 
-;Installer
+; Installer
 
 Section "$(L10N_UPDATE_SECTION)" sec_update
 	NSISdl::download "${APP_UPDATEURL}" "$TEMP\${APP_NAME}-updatecheck"
@@ -245,8 +250,11 @@ Function .onInit
 	;Detect x64
 	!ifdef x64
 	${If} ${RunningX64}
-		StrCpy $INSTDIR "$PROGRAMFILES64\${APP_NAME}"
 		SectionSetText ${sec_app} "${APP_NAME} (x64)"
+		;Only set x64 installation dir if not already installed
+		ReadRegStr $0 HKCU "Software\${APP_NAME}" "Install_Dir"
+		IfFileExists $0 +2
+			StrCpy $INSTDIR "$PROGRAMFILES64\${APP_NAME}"
 	${EndIf}
 	!endif
 	;Display language selection and add tray if program is running
@@ -298,7 +306,7 @@ Function .onInstSuccess
 		Call Launch
 FunctionEnd
 
-;Uninstaller
+; Uninstaller
 
 Function un.onInit
 	!insertmacro MUI_UNGETLANGUAGE
@@ -313,7 +321,7 @@ Section "Uninstall"
 	Delete /REBOOTOK "$INSTDIR\${APP_NAME}-old.ini"
 	Delete /REBOOTOK "$INSTDIR\info.txt"
 	Delete /REBOOTOK "$INSTDIR\Uninstall.exe"
-	RMDir /REBOOTOK "$INSTDIR"
+	RMDir  /REBOOTOK "$INSTDIR"
 
 	Delete /REBOOTOK "$SMPROGRAMS\${APP_NAME}.lnk"
 
