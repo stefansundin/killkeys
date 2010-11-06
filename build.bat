@@ -40,7 +40,7 @@ if "%1" == "all" (
 			if not exist "build\x64\%%f\KillKeys". mkdir "build\x64\%%f\KillKeys"
 			copy "build\x64\KillKeys.exe" "build\x64\%%f\KillKeys"
 			copy "build\%%f\KillKeys\info.txt" "build\x64\%%f\KillKeys"
-			copy "build\%%f\KillKeys\KillKeys.ini" "build\x64\%%f\KillKeys\KillKeys.ini"
+			copy "build\%%f\KillKeys\KillKeys.ini" "build\x64\%%f\KillKeys"
 		)
 	)
 	
