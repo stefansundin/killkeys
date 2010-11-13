@@ -90,21 +90,6 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR szCmdLine, in
 		return 0;
 	}
 	
-	//Load settings
-	wchar_t path[MAX_PATH];
-	GetModuleFileName(NULL, path, sizeof(path)/sizeof(wchar_t));
-	PathRemoveFileSpec(path);
-	wcscat(path, L"\\"APP_NAME".ini");
-	wchar_t txt[10];
-	GetPrivateProfileString(APP_NAME, L"Language", L"en-US", txt, sizeof(txt)/sizeof(wchar_t), path);
-	int i;
-	for (i=0; languages[i].code != NULL; i++) {
-		if (!wcsicmp(txt,languages[i].code)) {
-			l10n = languages[i].strings;
-			break;
-		}
-	}
-	
 	//Create window
 	WNDCLASSEX wnd;
 	wnd.cbSize = sizeof(WNDCLASSEX);
@@ -121,6 +106,22 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInstance, LPSTR szCmdLine, in
 	wnd.lpszClassName = APP_NAME;
 	RegisterClassEx(&wnd);
 	g_hwnd = CreateWindowEx(0, wnd.lpszClassName, APP_NAME, WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, HWND_MESSAGE, NULL, hInst, NULL);
+	
+	//Load settings
+	wchar_t path[MAX_PATH];
+	GetModuleFileName(NULL, path, sizeof(path)/sizeof(wchar_t));
+	PathRemoveFileSpec(path);
+	wcscat(path, L"\\"APP_NAME".ini");
+	wchar_t txt[10];
+	GetPrivateProfileString(APP_NAME, L"Language", L"en-US", txt, sizeof(txt)/sizeof(wchar_t), path);
+	int i;
+	for (i=0; languages[i].code != NULL; i++) {
+		if (!wcsicmp(txt,languages[i].code)) {
+			l10n = languages[i].strings;
+			break;
+		}
+	}
+	SendMessage(g_hwnd, WM_UPDATESETTINGS, 0, 0);
 	
 	//Tray icon
 	InitTray();
@@ -203,7 +204,7 @@ int IsFullscreen(HWND window) {
 }
 
 //Hook
-__declspec(dllexport) LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
+LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
 	if (nCode == HC_ACTION && (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN)) {
 		int vkey = ((PKBDLLHOOKSTRUCT)lParam)->vkCode;
 		
@@ -246,26 +247,8 @@ int HookKeyboard() {
 		return 1;
 	}
 	
-	//Update settings
-	SendMessage(g_hwnd, WM_UPDATESETTINGS, 0, 0);
-	
-	//Name decoration
-	//This is really an ugly hack to make both MinGW/mingw-w32 and mingw-w64 use their respective name decorations
-	#ifdef _WIN64
-	#define KeyhookNameDecoration ""    //mingw-w64
-	#else
-	#define KeyhookNameDecoration "@12" //MinGW/mingw-w32
-	#endif
-	
-	//Get address to keyboard hook
-	HOOKPROC procaddr = (HOOKPROC)GetProcAddress(g_hinst, "LowLevelKeyboardProc"KeyhookNameDecoration);
-	if (procaddr == NULL) {
-		Error(L"GetProcAddress('LowLevelKeyboardProc'"KeyhookNameDecoration")", L"Could not find hook function. Try restarting "APP_NAME".", GetLastError(), TEXT(__FILE__), __LINE__);
-		return 1;
-	}
-	
 	//Set up the hook
-	keyhook = SetWindowsHookEx(WH_KEYBOARD_LL, procaddr, g_hinst, 0);
+	keyhook = SetWindowsHookEx(WH_KEYBOARD_LL, LowLevelKeyboardProc, g_hinst, 0);
 	if (keyhook == NULL) {
 		Error(L"SetWindowsHookEx(WH_KEYBOARD_LL)", L"Could not hook keyboard. Another program might be interfering.", GetLastError(), TEXT(__FILE__), __LINE__);
 		return 1;
@@ -311,6 +294,7 @@ void ToggleState() {
 		UnhookKeyboard();
 	}
 	else {
+		SendMessage(g_hwnd, WM_UPDATESETTINGS, 0, 0);
 		HookKeyboard();
 	}
 }
