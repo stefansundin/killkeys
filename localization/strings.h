@@ -15,9 +15,6 @@ struct strings {
 	wchar_t *update_balloon;
 	wchar_t *update_dialog;
 	wchar_t *update_nonew;
-	wchar_t *about_keys1;
-	wchar_t *about_keys2;
-	wchar_t *about_keys3;
 	wchar_t *about_title;
 	wchar_t *about;
 };

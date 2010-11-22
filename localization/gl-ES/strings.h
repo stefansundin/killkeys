@@ -23,17 +23,12 @@ struct strings gl_ES = {
  /* update_balloon */ L"Nova versión dispoñíbel!",
  /* update_dialog  */ L"Unha nova versión está dispoñíbel.\nQueres ir á páxina web?\n\nPodes desactivar a comprobación de actualizacións na configuración.",
  /* update_nonew   */ L"Non hai actualizacións.",
- /* about_keys1    */ L"Teclas desactivadas non en pantalla completa:",
- /* about_keys2    */ L"Teclas desactivadas en pantalla  completa:",
- /* about_keys3    */ L"Activa "APP_NAME" para ver que teclas serán desactivadas.",
  /* about_title    */ L"Acerca de " APP_NAME,
  /* about          */ APP_NAME " - " APP_VERSION "\n\
 Feito por Stefan Sundin\n\
 Traducido por Alexander De Sousa\n\
 \n\
 Cando está activado, as teclas especificadas en KillKeys.ini estarán desactivadas.\n\
-Por defecto, as teclas de Windows e a tecla do menú están desactivadas en pantalla completa.\n\
-%s\n\
 \n\
 Visita a páxina web en "APP_URL"\n\
 Visita a web do autor en http://stefansundin.com/"

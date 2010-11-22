@@ -163,7 +163,9 @@ BOOL CALLBACK MonitorEnumProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMoni
 		monitors_alloc++;
 		monitors = realloc(monitors, monitors_alloc*sizeof(RECT));
 		if (monitors == NULL) {
+			#ifdef DEBUG
 			Error(L"realloc(monitors)", L"Out of memory?", 0, TEXT(__FILE__), __LINE__);
+			#endif
 			return FALSE;
 		}
 	}
@@ -197,10 +199,16 @@ int IsFullscreen(HWND window) {
 	//Loop monitors
 	int i;
 	for (i=0; i < nummonitors; i++) {
-		if (wnd.left == monitors[i].left && wnd.top == monitors[i].top && wnd.right == monitors[i].right && wnd.bottom == monitors[i].bottom) {
+		if (wnd.left == monitors[i].left
+		 && wnd.top == monitors[i].top
+		 && wnd.right == monitors[i].right
+		 && wnd.bottom == monitors[i].bottom) {
 			return 1;
 		}
 	}
+	
+	//Not fullscreen
+	return 0;
 }
 
 //Hook
@@ -335,7 +343,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 			//Make sure we have enough space
 			if (numkeys == keys_alloc) {
 				keys_alloc += 100;
-				keys = realloc(keys,keys_alloc*sizeof(int));
+				keys = realloc(keys, keys_alloc*sizeof(int));
 				if (keys == NULL) {
 					Error(L"realloc(keys)", L"Out of memory?", GetLastError(), TEXT(__FILE__), __LINE__);
 					break;
@@ -354,7 +362,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 			//Make sure we have enough space
 			if (numkeys_fullscreen == keys_alloc) {
 				keys_alloc += 100;
-				keys_fullscreen = realloc(keys_fullscreen,keys_alloc*sizeof(int));
+				keys_fullscreen = realloc(keys_fullscreen, keys_alloc*sizeof(int));
 				if (keys_fullscreen == NULL) {
 					Error(L"realloc(keys_fullscreen)", L"Out of memory?", GetLastError(), TEXT(__FILE__), __LINE__);
 					break;
@@ -423,24 +431,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 			}
 		}
 		else if (wmId == SWM_ABOUT) {
-			wchar_t txt[1000], buffer[1000];
-			if (enabled()) {
-				wcscpy(txt, l10n->about_keys1);
-				int i;
-				for (i=0; i < numkeys; i++) {
-					swprintf(txt, L"%s %02X", txt, keys[i]);
-				}
-				wcscat(txt, L"\n");
-				wcscat(txt, l10n->about_keys2);
-				for (i=0; i < numkeys_fullscreen; i++) {
-					swprintf(txt, L"%s %02X", txt, keys_fullscreen[i]);
-				}
-			}
-			else {
-				wcscpy(txt, l10n->about_keys3);
-			}
-			swprintf(buffer, l10n->about, txt);
-			MessageBox(NULL, buffer, l10n->about_title, MB_ICONINFORMATION|MB_OK);
+			MessageBox(NULL, l10n->about, l10n->about_title, MB_ICONINFORMATION|MB_OK);
 		}
 		else if (wmId == SWM_EXIT) {
 			DestroyWindow(hwnd);
