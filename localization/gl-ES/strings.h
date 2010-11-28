@@ -15,7 +15,7 @@ struct strings gl_ES = {
  /* menu_autostart */ L"Arrancar ó inicio",
  /* menu_settings  */ L"Abrir configuración",
  /* menu_chkupdate */ L"Comprobar actualizacións",
- /* menu_update    */ L"Actualización dispoñíbel",
+ /* menu_update    */ L"Actualización dispoñíbel!",
  /* menu_about     */ L"Acerca de",
  /* menu_exit      */ L"Saír",
  /* tray_enabled   */ APP_NAME " (activado)",

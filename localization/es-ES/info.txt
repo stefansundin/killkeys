@@ -3,6 +3,7 @@ Por Stefan Sundin
 Traducido por Fabrizio Ferri (algernon@gmail.com)
 
 Una vez activado, las teclas especificadas en el fichero KillKeys.ini serán desactivadas.
+La forma más fácil de abrir KillKeys.ini es a través del menú del icono en la bandeja del sistema.
 Por defecto, la teclá Windows y la tecla Menú están desactivadas en pantalla completa.
 KillKeys buscará actualizaciones automáticamente. Puedes desactivar esto en el fichero KillKeys.ini.
 
@@ -15,6 +16,11 @@ KillKeys es un programa de código abierto bajo licencia GPL.
 
 Historial de cambios
 --------------------
+1.2:
+Se añadió un ejecutable de 64-bits, el programa de instalación seleccionará el correcto.
+Se arregló un problema en el que bajo Windows 7 el escritorio se trataba como una aplicación a pantalla completa.
+Se corrigieron errores menores.
+
 1.1 - 2009-08-30:
 Arreglado un fallo que aparecía al usar Keys y Keys_Fullscreen a la vez.
 El idioma puede cambiarse en el fichero KillKeys.ini.
