@@ -15,7 +15,7 @@ KillKeys is open source, licensed under GPL.
 
 Changelog
 ---------
-1.2:
+1.2 - 2010-11-29:
 Added 64-bit executable. The installer will automatically install the correct executable.
 Fixed an issue in Windows 7 where the desktop would be treated as a fullscreen window.
 Fixed some minor bugs.

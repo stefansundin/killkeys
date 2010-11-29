@@ -16,7 +16,7 @@ KillKeys é un programa de código fonte aberto, baixo a licencia GPL.
 
 Listaxe de Cambios:
 -------------------
-1.2:
+1.2 - 2010-11-29:
 Engadiuse un executable de 64-bits. O instalador escollerá a versión correcta automáticamente.
 Arranxouse un problema baixo Windows 7 no que o escritorio era tratado como una fiestra a pantalla completa.
 Corrixíronse erros menores.
