@@ -4,16 +4,42 @@
 	<title>KillKeys</title>
 	<link href="http://killkeys.googlecode.com/svn/wiki/feed.xml" rel="self" />
 	<link href="http://code.google.com/p/killkeys/" />
-	<updated>2009-08-30T20:00:00Z</updated>
+	<updated>2010-11-29T15:45:00Z</updated>
 	<author>
 		<name>Stefan Sundin</name>
+		<uri>http://stefansundin.com/</uri>
 		<email>recover89@gmail.com</email>
 	</author>
 
 	<entry>
+		<id>urn:uuid:13490975-7ebf-4f17-85ea-d68a364ca89b</id>
+		<title>KillKeys - 1.2</title>
+		<link href="http://code.google.com/p/killkeys/" />
+		<updated>2010-11-29T15:45:00Z</updated>
+		<author><name>Stefan Sundin</name></author>
+		<content type="html">
+&lt;p>Released 1.2.&lt;/p>
+&lt;p>This release fixes a couple of minor bugs. The new version is also available in 64-bit. The installer will automatically install the correct executable. For more details, see the changelog below.&lt;/p>
+&lt;p>&lt;u>Changelog:&lt;/u>&lt;/p>
+&lt;ul>
+&lt;li>Added 64-bit executable. The installer will automatically install the correct executable.&lt;/li>
+&lt;li>Fixed an issue in Windows 7 where the desktop would be treated as a fullscreen window.&lt;/li>
+&lt;li>Fixed some minor bugs.&lt;/li>
+&lt;/ul>
+&lt;p>&lt;a href="http://code.google.com/p/killkeys/">&lt;img src="http://killkeys.googlecode.com/svn/wiki/website.png"/> Visit the website&lt;/a>&lt;/p>
+&lt;p>&lt;a href="http://killkeys.googlecode.com/files/KillKeys-1.2.exe">&lt;img src="http://killkeys.googlecode.com/svn/wiki/down.png"/> Download installer&lt;/a>
+ - Archive: &lt;a href="http://killkeys.googlecode.com/files/KillKeys-1.2.7z">English&lt;/a> (&lt;a href="http://killkeys.googlecode.com/files/KillKeys-1.2%20%28x64%29.7z">x64&lt;/a>)
+ - &lt;a href="http://killkeys.googlecode.com/files/KillKeys-1.2%20%28Spanish%29.7z">Spanish&lt;/a> (&lt;a href="http://killkeys.googlecode.com/files/KillKeys-1.2%20%28Spanish%2C%20x64%29.7z">x64&lt;/a>)
+ - &lt;a href="http://killkeys.googlecode.com/files/KillKeys-1.2%20%28Galician%29.7z">Galician&lt;/a> (&lt;a href="http://killkeys.googlecode.com/files/KillKeys-1.2%20%28Galician%2C%20x64%29.7z">x64&lt;/a>)&lt;/p>
+&lt;p>&lt;a href="http://groups.google.com/group/recovers-tools">&lt;img src="http://killkeys.googlecode.com/svn/wiki/groups.png"/> Discuss in the forum&lt;/a> (no registration required)&lt;/p>
+&lt;p>&lt;a href="http://stefansundin.com/">&lt;img src="http://killkeys.googlecode.com/svn/wiki/website.png"/> Visit the author's website&lt;/a>&lt;/p>
+		</content>
+	</entry>
+
+	<entry>
 		<id>urn:uuid:0892fc44-c622-4456-ab9a-09ce1816106b</id>
 		<title>KillKeys - 1.1</title>
-		<link href="http://code.google.com/p/superf4/" />
+		<link href="http://code.google.com/p/killkeys/" />
 		<updated>2009-08-30T20:00:00Z</updated>
 		<content type="html">
 Released 1.1.&lt;br/>
@@ -42,32 +68,6 @@ Bumping the version to 1.0 since I think KillKeys now accomplishes what I set ou
 I have also opened &lt;a href="http://groups.google.com/group/recovers-tools"> a forum&lt;/a> which I hope you'll use to discuss KillKeys and my other tools, let me know what's good and what's bad.&lt;br/>
 I have also gotten some reports that my tools show up on some antivirus scanners, these are all false positives! I will try to report it to the antivirus vendors.&lt;br/>
 Finally, I would like to let you know that I have put donating details on the site, so if you feel this program is useful, please consider &lt;a href="http://code.google.com/p/killkeys/wiki/Donate">donating money&lt;/a>.
-		</content>
-	</entry>
-
-	<entry>
-		<id>urn:uuid:3f7e1873-cf11-4e49-ac97-a3234a8bd7dd</id>
-		<title>KillKeys - 0.3</title>
-		<link href="http://code.google.com/p/killkeys/downloads/detail?name=KillKeys-0.3.7z" />
-		<updated>2008-11-15T02:52:00Z</updated>
-		<content type="text">
-Changelog:
-* Added option to disable keys in fullscreen.
-* Removed restriction of 100 keys.
-* Renamed log-keyhook.txt to killkeys-log.txt
-		</content>
-	</entry>
-
-	<entry>
-		<id>urn:uuid:727fcae8-f419-41ce-855c-89f2d0ee09ee</id>
-		<title>This feed</title>
-		<link href="http://code.google.com/p/killkeys/" />
-		<updated>2008-09-26T15:30:00Z</updated>
-		<content type="html">
-Hi everyone.&lt;br/>
-This feed will let you know when there's any update to KillKeys.&lt;br/>
-There's also another feed available &lt;a href="http://superf4.googlecode.com/svn/wiki/all.xml">here&lt;/a> which will let you know if there's an update to any of programs.&lt;br/>
-You can take a look at all my programs &lt;a href="http://code.google.com/u/recover89/">here&lt;/a>.
 		</content>
 	</entry>
 </feed>
