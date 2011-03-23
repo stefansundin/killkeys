@@ -4,12 +4,23 @@
 	<title>KillKeys</title>
 	<link href="http://killkeys.googlecode.com/svn/wiki/feed.xml" rel="self" />
 	<link href="http://code.google.com/p/killkeys/" />
-	<updated>2010-12-30T21:20:00Z</updated>
+	<updated>2011-03-23T18:30:00Z</updated>
 	<author>
 		<name>Stefan Sundin</name>
 		<uri>http://stefansundin.com/</uri>
 		<email>recover89@gmail.com</email>
 	</author>
+
+	<entry>
+		<id>urn:uuid:83e68b5d-5200-4351-90f7-735993b734f8</id>
+		<title>Turn your caps lock key into a search key</title>
+		<link href="http://code.google.com/p/killkeys/" />
+		<updated>2011-03-23T18:30:00Z</updated>
+		<author><name>Stefan Sundin</name></author>
+		<content type="html">
+&lt;p>I just read a tutorial on Lifehacker on &lt;a href="http://lifehacker.com/#!5783951/make-your-caps-lock-key-into-a-cr+48+style-search-key">how to turn your caps lock key into a search key&lt;/a>. It's a pretty nice tweak since the caps lock key doesn't serve much purpose these days.&lt;/p>
+		</content>
+	</entry>
 
 	<entry>
 		<id>urn:uuid:242a3189-6873-4a13-be72-f8fe1cab5279</id>
