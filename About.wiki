@@ -12,7 +12,7 @@ You can configure which keys should be blocked in the configuration file called 
 
 You can specify keys that should be disabled when not in fullscreen with the `Keys` option. The option `Keys_Fullscreen` applies for fullscreen windows such as games. By default, the windows keys and the menu key are disabled when in fullscreen.
 
-The keys are specified with hex values. You can find hex values by reading [http://msdn.microsoft.com/en-us/library/ms645540(VS.85).aspx this page] on MSDN.
+The keys are specified with hex values. You can find hex values by reading [http://msdn.microsoft.com/en-us/library/dd375731(VS.85).aspx this page] on MSDN.
 
 Here are some common keys:
 || *Key*              || *Hex value* ||
