@@ -1,4 +1,5 @@
 #summary Change the key mappings in the Windows driver.
+#labels Featured
 
 = Introduction =
 
