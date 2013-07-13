@@ -4,12 +4,22 @@
 	<title>KillKeys</title>
 	<link href="http://killkeys.googlecode.com/svn/wiki/feed.xml" rel="self" />
 	<link href="http://code.google.com/p/killkeys/" />
-	<updated>2011-03-23T18:30:00Z</updated>
+	<updated>2013-07-14T01:30:00Z</updated>
 	<author>
 		<name>Stefan Sundin</name>
 		<uri>http://stefansundin.com/</uri>
-		<email>recover89@gmail.com</email>
 	</author>
+
+	<entry>
+		<id>urn:uuid:9a01e026-c1e7-4793-a454-eb6152552aac</id>
+		<title>Use the Windows keyboard driver to remap and disable keys</title>
+		<link href="http://code.google.com/p/killkeys/" />
+		<updated>2013-07-14T01:30:00Z</updated>
+		<author><name>Stefan Sundin</name></author>
+		<content type="html">
+&lt;p>I've created &lt;a href="http://code.google.com/p/killkeys/wiki/ScancodeMap">a wiki page&lt;/a> describing how you can use the keyboard mapper function in the Windows keyboard driver. It enables you to globally remap keys in Windows, or simply disable them, and it does not require KillKeys or any other additional program. This is useful if KillKeys is not working in your game (e.g. Diablo II).&lt;/p>
+		</content>
+	</entry>
 
 	<entry>
 		<id>urn:uuid:83e68b5d-5200-4351-90f7-735993b734f8</id>
