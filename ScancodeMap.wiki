@@ -13,7 +13,7 @@ You can find some technical information on [http://msdn.microsoft.com/en-us/libr
 
 It can be quite difficult to configure this registry value manually, and there is a chance of breaking things, so instead I recommend that you use a separate program to do that.
 
-There is a tool called [http://webpages.charter.net/krumsick/ TweakKey] that works really well. Use it to create your mappings. Once that's done, you can uninstall the tool if you wish.
+There is a tool called [http://webpages.charter.net/krumsick/ KeyTweak] that works really well. Use it to create your mappings. Once that's done, you can uninstall the tool if you wish.
 
 You have to reboot for changes to take effect.
 
