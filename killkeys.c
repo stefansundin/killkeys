@@ -10,6 +10,7 @@
 #define UNICODE
 #define _UNICODE
 #define _WIN32_IE 0x0600
+#define _CRT_NON_CONFORMING_SWPRINTFS
 
 #include <stdio.h>
 #include <stdlib.h>
